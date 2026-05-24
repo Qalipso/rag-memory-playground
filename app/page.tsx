@@ -30,6 +30,19 @@ export default function HomePage() {
           Open MVP playground →
         </Link>
         <Link
+          href="/compare"
+          style={{
+            background: "#1f6feb",
+            color: "white",
+            textDecoration: "none",
+            padding: "10px 18px",
+            borderRadius: 4,
+            display: "inline-block",
+          }}
+        >
+          Pipeline compare →
+        </Link>
+        <Link
           href="/rag-memory-playground"
           style={{
             background: "#21262d",
@@ -41,7 +54,7 @@ export default function HomePage() {
             border: "1px solid #30363d",
           }}
         >
-          Open framework debug page →
+          Framework debug →
         </Link>
       </div>
       <p style={{ marginTop: 24, color: "#8b949e", fontSize: 13 }}>

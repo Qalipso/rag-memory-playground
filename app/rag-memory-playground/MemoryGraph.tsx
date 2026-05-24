@@ -103,6 +103,8 @@ export default function MemoryGraph({ userId }: { userId: string }) {
   const [selected, setSelected] = useState<GraphNode | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ width: 800, height: 560 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fgRef = useRef<any>(null);
 
   async function load() {
     setLoading(true);
@@ -145,6 +147,20 @@ export default function MemoryGraph({ userId }: { userId: string }) {
     () => buildGraph(memData?.memories ?? [], srcData?.sources ?? []),
     [memData, srcData],
   );
+
+  // Apply repulsion force after graph mounts / data changes.
+  // Delay needed: dynamic import + data fetch complete asynchronously.
+  useEffect(() => {
+    if (data.nodes.length === 0) return;
+    const timer = setTimeout(() => {
+      const fg = fgRef.current;
+      if (!fg) return;
+      const charge = fg.d3Force("charge");
+      if (charge) charge.strength(-350);
+      fg.d3ReheatSimulation();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [data]);
 
   const memProvider = memData?.provider;
   const ragMode = srcData?.ragMode;
@@ -200,6 +216,7 @@ export default function MemoryGraph({ userId }: { userId: string }) {
       <div ref={containerRef} style={S.graphWrap}>
         {data.nodes.length > 0 ? (
           <ForceGraph2D
+            ref={fgRef}
             graphData={data}
             width={size.width}
             height={size.height}
@@ -207,12 +224,17 @@ export default function MemoryGraph({ userId }: { userId: string }) {
             nodeRelSize={8}
             nodeVal={(n: object) => (n as GraphNode).size}
             nodeColor={(n: object) => (n as GraphNode).color}
-            linkColor={() => "rgba(140, 160, 190, 0.35)"}
-            linkWidth={1}
-            cooldownTicks={200}
-            warmupTicks={60}
-            d3AlphaDecay={0.018}
-            d3VelocityDecay={0.22}
+            linkColor={() => "rgba(140, 160, 190, 0.28)"}
+            linkWidth={1.2}
+            linkCurvature={0.18}
+            linkDirectionalParticles={1}
+            linkDirectionalParticleSpeed={0.004}
+            linkDirectionalParticleWidth={2}
+            linkDirectionalParticleColor={() => "rgba(140, 190, 255, 0.7)"}
+            cooldownTicks={300}
+            warmupTicks={80}
+            d3AlphaDecay={0.015}
+            d3VelocityDecay={0.2}
             nodeCanvasObject={drawNode}
             nodeCanvasObjectMode={() => "after"}
             nodePointerAreaPaint={paintHitArea}

@@ -125,11 +125,18 @@ class KnowledgeStore {
   /**
    * Add a single file already extracted as plain text.
    * Synchronous chunking; no network IO.
+   * Idempotent: if a source with the same normalised path already exists,
+   * returns the existing source without re-indexing.
    */
   addFile(input: AddFileInput): KnowledgeSource {
+    const normalizedPath = input.relativePath || input.fileName;
+    for (const entry of this.bySource.values()) {
+      if (entry.source.title === normalizedPath) return entry.source;
+    }
+
     const id = `src_${randomUUID()}`;
     const now = new Date().toISOString();
-    const title = input.relativePath || input.fileName;
+    const title = normalizedPath;
 
     const chunks = chunkText(input.content);
     const knowledgeChunks: KnowledgeChunk[] = chunks.map((c) => ({
@@ -230,14 +237,20 @@ class KnowledgeStore {
   }
 }
 
-let shared: KnowledgeStore | undefined;
+// Use globalThis so the singleton survives Next.js dev-mode hot reloads
+// (module-level variables get reset on each hot reload; globalThis does not).
+declare global {
+  // eslint-disable-next-line no-var
+  var __knowledgeStore: KnowledgeStore | undefined;
+}
+
 export function getKnowledgeStore(): KnowledgeStore {
-  if (!shared) shared = new KnowledgeStore();
-  return shared;
+  if (!globalThis.__knowledgeStore) globalThis.__knowledgeStore = new KnowledgeStore();
+  return globalThis.__knowledgeStore;
 }
 
 export function resetKnowledgeStore(): void {
-  shared = undefined;
+  globalThis.__knowledgeStore = undefined;
 }
 
 export type { KnowledgeStore };

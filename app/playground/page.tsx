@@ -1,11 +1,16 @@
 /**
- * /playground — RAG Memory Playground MVP.
+ * /playground — RAG Memory Playground.
  *
- * 5 tabs: Sources, Chunks, Memory Blocks, Ask, Trace.
- * 100% client-side. No backend, no LLM, no API keys.
+ * 2-tab layout:
+ *   Setup  — load files, see indexed sources
+ *   Explore — chunks, memory blocks, ask, trace, memory graph
+ *
+ * Files are synced to both the client-side MVP engine (heuristic pipeline)
+ * and the server KnowledgeStore so the Memory Graph shows uploaded sources.
  */
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { RagMemoryEngine, type FileInput } from "../../src/mvp/engine";
@@ -20,7 +25,14 @@ import type {
   SourceFile,
 } from "../../src/mvp/types";
 
-type Tab = "sources" | "chunks" | "blocks" | "ask" | "trace";
+// Lazy: only bundled when Graph sub-tab is rendered.
+const PipelineGraph = dynamic(() => import("./PipelineGraph"), {
+  ssr: false,
+  loading: () => <p style={S.empty}>Loading graph…</p>,
+});
+
+type TopTab = "setup" | "explore";
+type ExploreTab = "chunks" | "blocks" | "ask" | "trace" | "graph";
 
 const SUGGESTIONS = [
   "What is this project about?",
@@ -46,6 +58,12 @@ const CHUNK_TYPE_COLORS: Record<ChunkType, string> = {
   unknown: "#8b949e",
 };
 
+const ALLOWED_EXT = /\.(md|txt|json|ts|tsx|js|jsx)$/i;
+const SKIP_PATH =
+  /(^|\/)(node_modules|\.next|\.git|dist|build|out|coverage)(\/|$)|\.env(\.|$)|package-lock\.json$|pnpm-lock\.yaml$|yarn\.lock$|bun\.lockb?$/;
+const MAX_BYTES = 512 * 1024;
+const MAX_FILES = 1000;
+
 export default function PlaygroundPage() {
   const [engine] = useState(() => new RagMemoryEngine());
   const [sources, setSources] = useState<SourceFile[]>([]);
@@ -53,16 +71,20 @@ export default function PlaygroundPage() {
   const [blocks, setBlocks] = useState<MemoryBlock[]>([]);
   const [trace, setTrace] = useState<RetrievalTrace | null>(null);
   const [result, setResult] = useState<AskResult | null>(null);
-  const [tab, setTab] = useState<Tab>("sources");
+
+  const [topTab, setTopTab] = useState<TopTab>("setup");
+  const [exploreTab, setExploreTab] = useState<ExploreTab>("chunks");
+  const [syncing, setSyncing] = useState(false);
+
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
 
-  // Chunks tab filters
+  // Chunks sub-tab filters
   const [chunkFilterSource, setChunkFilterSource] = useState<string>("all");
   const [chunkFilterType, setChunkFilterType] = useState<ChunkType | "all">("all");
   const [chunkSearch, setChunkSearch] = useState("");
 
-  // Blocks tab filters
+  // Blocks sub-tab filter
   const [blockFilter, setBlockFilter] = useState<BlockType | "all">("all");
 
   const ingest = useCallback(
@@ -77,21 +99,43 @@ export default function PlaygroundPage() {
     [engine],
   );
 
-  const loadSample = useCallback(() => ingest(SAMPLE_FILES), [ingest]);
+  /**
+   * Upload files to the server KnowledgeStore so MemoryGraph can display them.
+   * Non-fatal if server is unavailable — MVP heuristics still work.
+   */
+  async function syncToServer(fd: FormData): Promise<void> {
+    setSyncing(true);
+    try {
+      await fetch("/api/rag-memory/sources/upload", { method: "POST", body: fd });
+    } catch {
+      // non-fatal
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  const loadSample = useCallback(() => {
+    ingest(SAMPLE_FILES);
+    // Build FormData from SAMPLE_FILES content and sync to server
+    const fd = new FormData();
+    let si = 0;
+    for (const f of SAMPLE_FILES) {
+      const key = `file_${si++}`;
+      const blob = new Blob([f.content], { type: "text/plain" });
+      fd.append(key, new File([blob], f.name));
+      fd.append(`relativePath_${key}`, f.path ?? f.name);
+    }
+    void syncToServer(fd);
+  }, [ingest]);
 
   const handleFiles = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
       const arr = Array.from(fileList);
-      // Pre-filter to avoid reading huge or skipped files into memory.
-      const ALLOWED_EXT = /\.(md|txt|json|ts|tsx|js|jsx)$/i;
-      const SKIP_PATH = /(^|\/)(node_modules|\.next|\.git|dist|build|out|coverage)(\/|$)|\.env(\.|$)|package-lock\.json$|pnpm-lock\.yaml$|yarn\.lock$|bun\.lockb?$/;
-      const MAX_BYTES = 512 * 1024; // 512 KB per file
-      const MAX_FILES = 1000;
-
       const filtered = arr
         .filter((f) => {
-          const path = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
+          const path =
+            (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
           return ALLOWED_EXT.test(f.name) && !SKIP_PATH.test(path) && f.size <= MAX_BYTES;
         })
         .slice(0, MAX_FILES);
@@ -99,11 +143,25 @@ export default function PlaygroundPage() {
       const inputs: FileInput[] = await Promise.all(
         filtered.map(async (f) => ({
           name: f.name,
-          path: (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
+          path:
+            (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
           content: await f.text(),
         })),
       );
       ingest(inputs);
+
+      // Sync original File objects (no re-read needed) to server
+      const fd = new FormData();
+      let fi = 0;
+      for (const f of filtered) {
+        const key = `file_${fi++}`;
+        fd.append(key, f);
+        fd.append(
+          `relativePath_${key}`,
+          (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
+        );
+      }
+      void syncToServer(fd);
     },
     [ingest],
   );
@@ -112,7 +170,6 @@ export default function PlaygroundPage() {
     const q = question.trim();
     if (!q) return;
     setAsking(true);
-    // Synchronous engine; setTimeout for UX feel only
     setTimeout(() => {
       const r = engine.ask(q);
       setResult(r);
@@ -127,13 +184,20 @@ export default function PlaygroundPage() {
       const r = engine.ask(q);
       setResult(r);
       setTrace(r.trace);
-      setTab("ask");
+      setTopTab("explore");
+      setExploreTab("ask");
     },
     [engine],
   );
 
-  const indexedSourceCount = sources.filter((s) => s.status === "indexed").length;
-  const skippedSourceCount = sources.length - indexedSourceCount;
+  const goExplore = useCallback(() => {
+    setTopTab("explore");
+    setExploreTab("chunks");
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
+  }, []);
+
+  const indexedCount = sources.filter((s) => s.status === "indexed").length;
+  const skippedCount = sources.length - indexedCount;
   const hasData = sources.length > 0;
 
   const filteredChunks = useMemo(() => {
@@ -154,95 +218,130 @@ export default function PlaygroundPage() {
   return (
     <main style={S.main}>
       <header style={S.header}>
-        <Link href="/" style={S.backLink}>← Back to home</Link>
+        <div style={{ display: "flex", gap: 12, marginBottom: 8 }}>
+          <Link href="/" style={S.backLink}>← Home</Link>
+          <Link href="/compare" style={S.backLink}>⇄ Compare pipelines</Link>
+        </div>
         <h1 style={S.h1}>RAG Memory Playground</h1>
         <p style={S.sub}>
-          Files → chunks → memory blocks → ask with sources → retrieval trace. 100% client-side,
-          no LLM, no API keys.
+          Files → chunks → memory blocks → ask with sources → graph. Client-side heuristic
+          pipeline synced to server KnowledgeStore for the memory graph.
         </p>
       </header>
 
-      <div style={S.stickyBar}>
-        <Pipeline
-          indexed={indexedSourceCount}
-          skipped={skippedSourceCount}
-          chunks={chunks.length}
-          blocks={blocks.length}
-          lastChunks={result?.chunks.length ?? null}
-        />
+      {/* Top-level tab bar */}
+      <nav style={S.topTabBar}>
+        <button
+          style={topTab === "setup" ? S.topTabActive : S.topTabInactive}
+          onClick={() => setTopTab("setup")}
+        >
+          Setup{hasData ? ` · ${indexedCount} sources` : ""}
+        </button>
+        <button
+          style={topTab === "explore" ? S.topTabActive : S.topTabInactive}
+          onClick={() => setTopTab("explore")}
+        >
+          Explore{hasData ? ` · ${chunks.length} chunks · ${blocks.length} blocks` : ""}
+        </button>
+        {syncing && <span style={S.syncBadge}>syncing to graph…</span>}
+      </nav>
 
-        <nav style={S.tabBar}>
-        {(["sources", "chunks", "blocks", "ask", "trace"] as const).map((t) => (
-          <button
-            key={t}
-            style={tab === t ? S.tabActive : S.tabInactive}
-            onClick={() => {
-              setTab(t);
-              if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "auto" });
-            }}
-          >
-            {labelFor(t, sources.length, chunks.length, blocks.length, result?.chunks.length)}
-          </button>
-        ))}
-        </nav>
-      </div>
-
-      {tab === "sources" && (
+      {/* ── Setup tab ─────────────────────────────────────────── */}
+      {topTab === "setup" && (
         <SourcesPanel
           sources={sources}
           hasData={hasData}
           onLoadSample={loadSample}
           onUpload={handleFiles}
+          onExplore={goExplore}
         />
       )}
 
-      {tab === "chunks" && (
-        <ChunksPanel
-          chunks={filteredChunks}
-          allChunks={chunks}
-          sources={sources}
-          filterSource={chunkFilterSource}
-          filterType={chunkFilterType}
-          search={chunkSearch}
-          onFilterSource={setChunkFilterSource}
-          onFilterType={setChunkFilterType}
-          onSearch={setChunkSearch}
-        />
-      )}
+      {/* ── Explore tab ───────────────────────────────────────── */}
+      {topTab === "explore" && (
+        <div>
+          {/* Sticky pipeline + sub-tab bar */}
+          <div style={S.stickyBar}>
+            <Pipeline
+              indexed={indexedCount}
+              skipped={skippedCount}
+              chunks={chunks.length}
+              blocks={blocks.length}
+              lastChunks={result?.chunks.length ?? null}
+            />
+            <nav style={S.subTabBar}>
+              {(["chunks", "blocks", "ask", "trace", "graph"] as const).map((t) => (
+                <button
+                  key={t}
+                  style={exploreTab === t ? S.subTabActive : S.subTabInactive}
+                  onClick={() => {
+                    setExploreTab(t);
+                    if (typeof window !== "undefined")
+                      window.scrollTo({ top: 0, behavior: "auto" });
+                  }}
+                >
+                  {exploreLabel(t, chunks.length, blocks.length, result?.chunks.length)}
+                </button>
+              ))}
+            </nav>
+          </div>
 
-      {tab === "blocks" && (
-        <BlocksPanel
-          blocks={filteredBlocks}
-          all={blocks}
-          filter={blockFilter}
-          onFilter={setBlockFilter}
-        />
+          {exploreTab === "chunks" && (
+            <ChunksPanel
+              chunks={filteredChunks}
+              allChunks={chunks}
+              sources={sources}
+              filterSource={chunkFilterSource}
+              filterType={chunkFilterType}
+              search={chunkSearch}
+              onFilterSource={setChunkFilterSource}
+              onFilterType={setChunkFilterType}
+              onSearch={setChunkSearch}
+            />
+          )}
+          {exploreTab === "blocks" && (
+            <BlocksPanel
+              blocks={filteredBlocks}
+              all={blocks}
+              filter={blockFilter}
+              onFilter={setBlockFilter}
+            />
+          )}
+          {exploreTab === "ask" && (
+            <AskPanel
+              question={question}
+              asking={asking}
+              result={result}
+              hasData={hasData}
+              onQuestion={setQuestion}
+              onAsk={ask}
+              onSuggest={askSuggestion}
+            />
+          )}
+          {exploreTab === "trace" && <TracePanel trace={trace} />}
+          {exploreTab === "graph" && (
+            <section style={S.section}>
+              <PipelineGraph sources={sources} blocks={blocks} />
+            </section>
+          )}
+        </div>
       )}
-
-      {tab === "ask" && (
-        <AskPanel
-          question={question}
-          asking={asking}
-          result={result}
-          hasData={hasData}
-          onQuestion={setQuestion}
-          onAsk={ask}
-          onSuggest={askSuggestion}
-        />
-      )}
-
-      {tab === "trace" && <TracePanel trace={trace} />}
     </main>
   );
 }
 
-function labelFor(t: Tab, s: number, c: number, b: number, last?: number | null): string {
+function exploreLabel(
+  t: ExploreTab,
+  c: number,
+  b: number,
+  last?: number | null,
+): string {
   switch (t) {
-    case "sources":  return `Sources (${s})`;
-    case "chunks":   return `Chunks (${c})`;
-    case "blocks":   return `Memory Blocks (${b})`;
-    case "ask":      return "Ask";
-    case "trace":    return last != null ? `Trace (${last})` : "Trace";
+    case "chunks":  return `Chunks (${c})`;
+    case "blocks":  return `Blocks (${b})`;
+    case "ask":     return "Ask";
+    case "trace":   return last != null ? `Trace (${last})` : "Trace";
+    case "graph":   return "Graph";
   }
 }
 
@@ -256,11 +355,16 @@ function Pipeline(props: {
   lastChunks: number | null;
 }) {
   const items = [
-    { label: "Sources", value: `${props.indexed}${props.skipped ? ` (${props.skipped} skipped)` : ""}` },
+    {
+      label: "Sources",
+      value: `${props.indexed}${props.skipped ? ` (${props.skipped} skipped)` : ""}`,
+    },
     { label: "Chunks", value: String(props.chunks) },
-    { label: "Memory Blocks", value: String(props.blocks) },
-    { label: "Ask", value: props.lastChunks != null ? `${props.lastChunks} chunks` : "—" },
-    { label: "Trace", value: props.lastChunks != null ? "ready" : "—" },
+    { label: "Blocks", value: String(props.blocks) },
+    {
+      label: "Last ask",
+      value: props.lastChunks != null ? `${props.lastChunks} chunks` : "—",
+    },
   ];
   return (
     <div style={S.pipeline}>
@@ -275,13 +379,14 @@ function Pipeline(props: {
   );
 }
 
-// ---------- Sources ----------
+// ---------- Sources (Setup) ----------
 
 function SourcesPanel(props: {
   sources: SourceFile[];
   hasData: boolean;
   onLoadSample: () => void;
   onUpload: (files: FileList | null) => void;
+  onExplore: () => void;
 }) {
   return (
     <section style={S.section}>
@@ -317,16 +422,20 @@ function SourcesPanel(props: {
             }}
           />
         </label>
+        {props.hasData && (
+          <button style={S.exploreButton} onClick={props.onExplore}>
+            Explore results →
+          </button>
+        )}
         <span style={S.muted}>
-          .md, .txt, .json, .ts, .tsx, .js, .jsx supported. node_modules, .env,
-          lockfiles, and build output are skipped.
+          .md .txt .json .ts .tsx .js .jsx · node_modules, .env, lockfiles, build output skipped
         </span>
       </div>
 
       {!props.hasData && (
         <p style={S.empty}>
-          No files loaded yet. Click <strong>Load sample project</strong> for a demo, or upload
-          your own files.
+          No files loaded. Click <strong>Load sample project</strong> for a quick demo, or
+          upload your own files.
         </p>
       )}
 
@@ -345,7 +454,9 @@ function SourcesPanel(props: {
                     {src.status}
                   </span>
                   <span style={S.muted}>
-                    {src.status === "indexed" ? `${src.chunkCount} chunks` : src.skipReason ?? ""}
+                    {src.status === "indexed"
+                      ? `${src.chunkCount} chunks`
+                      : (src.skipReason ?? "")}
                   </span>
                 </div>
               </div>
@@ -374,7 +485,11 @@ function ChunksPanel(props: {
   onSearch: (v: string) => void;
 }) {
   if (props.allChunks.length === 0) {
-    return <section style={S.section}><p style={S.empty}>No chunks yet. Load sources first.</p></section>;
+    return (
+      <section style={S.section}>
+        <p style={S.empty}>No chunks yet. Load files in Setup first.</p>
+      </section>
+    );
   }
   const indexedSources = props.sources.filter((s) => s.status === "indexed");
   return (
@@ -389,7 +504,9 @@ function ChunksPanel(props: {
           >
             <option value="all">all</option>
             {indexedSources.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
             ))}
           </select>
         </label>
@@ -416,7 +533,7 @@ function ChunksPanel(props: {
             placeholder="search in chunk text…"
           />
         </label>
-        <div style={{ alignSelf: "flex-end", color: "#8b949e", fontSize: 12, paddingBottom: 8 }}>
+        <div style={S.countBadge}>
           {props.chunks.length} / {props.allChunks.length}
         </div>
       </div>
@@ -428,13 +545,17 @@ function ChunksPanel(props: {
               <code style={S.chunkId}>{c.id}</code>
               <span style={S.muted}>· {c.sourceName}</span>
               <span style={{ ...S.tag, color: CHUNK_TYPE_COLORS[c.type] }}>{c.type}</span>
-              <span style={S.muted}>{c.charCount} chars · ~{Math.round(c.charCount / 4)} tokens</span>
+              <span style={S.muted}>
+                {c.charCount} chars · ~{Math.round(c.charCount / 4)} tokens
+              </span>
             </div>
             <pre style={S.chunkText}>{truncate(c.text, 480)}</pre>
             {c.keywords.length > 0 && (
               <div style={S.keywordRow}>
                 {c.keywords.slice(0, 8).map((k) => (
-                  <span key={k} style={S.keywordChip}>{k}</span>
+                  <span key={k} style={S.keywordChip}>
+                    {k}
+                  </span>
                 ))}
               </div>
             )}
@@ -454,7 +575,11 @@ function BlocksPanel(props: {
   onFilter: (v: BlockType | "all") => void;
 }) {
   if (props.all.length === 0) {
-    return <section style={S.section}><p style={S.empty}>No memory blocks yet. Load sources first.</p></section>;
+    return (
+      <section style={S.section}>
+        <p style={S.empty}>No memory blocks yet. Load files in Setup first.</p>
+      </section>
+    );
   }
   const counts = countByType(props.all);
   return (
@@ -469,7 +594,11 @@ function BlocksPanel(props: {
         {(["Feature", "Decision", "Risk", "Todo", "Concept"] as const).map((t) => (
           <button
             key={t}
-            style={props.filter === t ? { ...S.chipActive, ...colorChip(t) } : { ...S.chip, ...colorChip(t) }}
+            style={
+              props.filter === t
+                ? { ...S.chipActive, ...colorChip(t) }
+                : { ...S.chip, ...colorChip(t) }
+            }
             onClick={() => props.onFilter(t)}
           >
             {t} ({counts[t] ?? 0})
@@ -489,15 +618,25 @@ function BlocksPanel(props: {
             {b.evidence.length > 0 && (
               <div style={S.evidenceBox}>
                 {b.evidence.map((e, i) => (
-                  <div key={i} style={S.evidence}>“{e}”</div>
+                  <div key={i} style={S.evidence}>
+                    "{e}"
+                  </div>
                 ))}
               </div>
             )}
             <div style={S.blockMeta}>
               <span style={S.muted}>sources:</span>
-              {b.sources.map((s) => <span key={s} style={S.tag}>{s}</span>)}
+              {b.sources.map((s) => (
+                <span key={s} style={S.tag}>
+                  {s}
+                </span>
+              ))}
               <span style={S.muted}>· chunks:</span>
-              {b.chunkIds.map((c) => <code key={c} style={S.chunkId}>{c}</code>)}
+              {b.chunkIds.map((c) => (
+                <code key={c} style={S.chunkId}>
+                  {c}
+                </code>
+              ))}
             </div>
           </div>
         ))}
@@ -520,7 +659,7 @@ function AskPanel(props: {
   return (
     <section style={S.section}>
       {!props.hasData && (
-        <p style={S.empty}>No data loaded. Load sample project or upload files first.</p>
+        <p style={S.empty}>No data loaded. Go to Setup and load files first.</p>
       )}
 
       <div style={S.askRow}>
@@ -529,7 +668,9 @@ function AskPanel(props: {
           value={props.question}
           onChange={(e) => props.onQuestion(e.target.value)}
           placeholder="Ask a question about the loaded sources…"
-          onKeyDown={(e) => { if (e.key === "Enter") props.onAsk(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") props.onAsk();
+          }}
           disabled={!props.hasData || props.asking}
         />
         <button
@@ -568,7 +709,11 @@ function AskPanel(props: {
             <div style={S.sourcesBox}>
               <div style={S.muted}>Sources used:</div>
               <div style={S.tagRow}>
-                {props.result.sources.map((s) => <span key={s} style={S.tag}>{s}</span>)}
+                {props.result.sources.map((s) => (
+                  <span key={s} style={S.tag}>
+                    {s}
+                  </span>
+                ))}
               </div>
             </div>
           )}
@@ -578,7 +723,9 @@ function AskPanel(props: {
               <div style={S.muted}>Memory blocks matched:</div>
               <div style={S.tagRow}>
                 {props.result.blocks.map((b) => (
-                  <span key={b.id} style={S.blockBadge(b.type)}>{b.type}: {b.title}</span>
+                  <span key={b.id} style={S.blockBadge(b.type)}>
+                    {b.type}: {b.title}
+                  </span>
                 ))}
               </div>
             </div>
@@ -593,30 +740,44 @@ function AskPanel(props: {
 
 function TracePanel(props: { trace: RetrievalTrace | null }) {
   if (!props.trace) {
-    return <section style={S.section}><p style={S.empty}>No retrieval yet. Ask a question first.</p></section>;
+    return (
+      <section style={S.section}>
+        <p style={S.empty}>No retrieval yet. Ask a question first.</p>
+      </section>
+    );
   }
   const t = props.trace;
   return (
     <section style={S.section}>
       <div style={S.traceRow}>
         <div style={S.muted}>Question</div>
-        <div style={S.traceValue}>“{t.question}”</div>
+        <div style={S.traceValue}>"{t.question}"</div>
       </div>
       <div style={S.traceRow}>
         <div style={S.muted}>Query terms ({t.queryTerms.length})</div>
         <div style={S.tagRow}>
-          {t.queryTerms.length === 0 && <span style={S.muted}>(none after filtering)</span>}
-          {t.queryTerms.map((term) => <code key={term} style={S.code}>{term}</code>)}
+          {t.queryTerms.length === 0 && (
+            <span style={S.muted}>(none after filtering)</span>
+          )}
+          {t.queryTerms.map((term) => (
+            <code key={term} style={S.code}>
+              {term}
+            </code>
+          ))}
         </div>
       </div>
       <div style={S.traceRow}>
         <div style={S.muted}>Searched</div>
-        <div style={S.mono}>{t.searchedSourcesCount} sources · {t.searchedChunksCount} chunks</div>
+        <div style={S.mono}>
+          {t.searchedSourcesCount} sources · {t.searchedChunksCount} chunks
+        </div>
       </div>
       <div style={S.traceRow}>
         <div style={S.muted}>Top retrieved chunks ({t.retrievedChunks.length})</div>
         <div>
-          {t.retrievedChunks.length === 0 && <span style={S.muted}>(no chunks matched)</span>}
+          {t.retrievedChunks.length === 0 && (
+            <span style={S.muted}>(no chunks matched)</span>
+          )}
           {t.retrievedChunks.map((r) => (
             <div key={r.chunkId} style={S.traceChunk}>
               <div>
@@ -624,7 +785,11 @@ function TracePanel(props: { trace: RetrievalTrace | null }) {
                 <span style={S.muted}> · {r.sourceName} · </span>
                 <span style={S.score}>{r.score.toFixed(2)}</span>
                 <span style={S.muted}> · matched: </span>
-                {r.matchedTerms.map((m) => <code key={m} style={S.code}>{m}</code>)}
+                {r.matchedTerms.map((m) => (
+                  <code key={m} style={S.code}>
+                    {m}
+                  </code>
+                ))}
               </div>
               <div style={S.snippet}>{r.preview}</div>
             </div>
@@ -634,7 +799,9 @@ function TracePanel(props: { trace: RetrievalTrace | null }) {
       <div style={S.traceRow}>
         <div style={S.muted}>Matched blocks ({t.matchedBlocks.length})</div>
         <div style={S.tagRow}>
-          {t.matchedBlocks.length === 0 && <span style={S.muted}>(no blocks matched)</span>}
+          {t.matchedBlocks.length === 0 && (
+            <span style={S.muted}>(no blocks matched)</span>
+          )}
           {t.matchedBlocks.map((b) => (
             <span key={b.id} style={S.blockBadge(b.type)}>
               {b.type}: {b.title} ({b.score.toFixed(1)})
@@ -646,7 +813,11 @@ function TracePanel(props: { trace: RetrievalTrace | null }) {
         <div style={S.muted}>Final sources</div>
         <div style={S.tagRow}>
           {t.finalSources.length === 0 && <span style={S.muted}>(none)</span>}
-          {t.finalSources.map((s) => <span key={s} style={S.tag}>{s}</span>)}
+          {t.finalSources.map((s) => (
+            <span key={s} style={S.tag}>
+              {s}
+            </span>
+          ))}
         </div>
       </div>
       <div style={S.traceRow}>
@@ -657,7 +828,11 @@ function TracePanel(props: { trace: RetrievalTrace | null }) {
         <div style={S.warnBox}>
           <div style={S.muted}>Warnings</div>
           <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-            {t.warnings.map((w, i) => <li key={i} style={{ color: "#ffd479" }}>{w}</li>)}
+            {t.warnings.map((w, i) => (
+              <li key={i} style={{ color: "#ffd479" }}>
+                {w}
+              </li>
+            ))}
           </ul>
         </div>
       )}
@@ -668,7 +843,13 @@ function TracePanel(props: { trace: RetrievalTrace | null }) {
 // ---------- Helpers ----------
 
 function countByType(blocks: MemoryBlock[]): Record<BlockType, number> {
-  const out: Record<BlockType, number> = { Feature: 0, Decision: 0, Risk: 0, Todo: 0, Concept: 0 };
+  const out: Record<BlockType, number> = {
+    Feature: 0,
+    Decision: 0,
+    Risk: 0,
+    Todo: 0,
+    Concept: 0,
+  };
   for (const b of blocks) out[b.type] += 1;
   return out;
 }
@@ -704,6 +885,48 @@ const S = {
   h1: { fontSize: 24, marginBottom: 4 } as const,
   sub: { color: "#8b949e", fontSize: 13, lineHeight: 1.5 } as const,
 
+  // Top-level tabs
+  topTabBar: {
+    display: "flex",
+    gap: 4,
+    alignItems: "center",
+    marginBottom: 16,
+    borderBottom: "1px solid #30363d",
+    paddingBottom: 0,
+  } as const,
+  topTabActive: {
+    background: "#161b22",
+    color: "#e6edf3",
+    border: "1px solid #30363d",
+    borderBottom: "1px solid #161b22",
+    padding: "10px 20px",
+    cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 600,
+    borderRadius: "6px 6px 0 0",
+    marginBottom: -1,
+    fontFamily: "inherit",
+  } as const,
+  topTabInactive: {
+    background: "transparent",
+    color: "#8b949e",
+    border: "1px solid transparent",
+    padding: "10px 20px",
+    cursor: "pointer",
+    fontSize: 14,
+    borderRadius: "6px 6px 0 0",
+    fontFamily: "inherit",
+  } as const,
+  syncBadge: {
+    marginLeft: 8,
+    color: "#ffd479",
+    fontSize: 11,
+    background: "#3a2814",
+    padding: "2px 8px",
+    borderRadius: 3,
+  } as const,
+
+  // Explore: sticky pipeline + sub-tabs
   stickyBar: {
     position: "sticky",
     top: 0,
@@ -734,12 +957,12 @@ const S = {
   pipeValue: { fontSize: 14, fontWeight: 600 } as const,
   pipeArrow: { color: "#30363d", marginLeft: 6 } as const,
 
-  tabBar: {
+  subTabBar: {
     display: "flex",
     gap: 4,
     marginBottom: 0,
   } as const,
-  tabActive: {
+  subTabActive: {
     background: "#161b22",
     color: "#e6edf3",
     border: "1px solid #30363d",
@@ -752,7 +975,7 @@ const S = {
     marginBottom: -1,
     fontFamily: "inherit",
   } as const,
-  tabInactive: {
+  subTabInactive: {
     background: "transparent",
     color: "#8b949e",
     border: "1px solid transparent",
@@ -770,7 +993,13 @@ const S = {
     borderRadius: 8,
     border: "1px solid #30363d",
   } as const,
-  row: { display: "flex", gap: 12, alignItems: "center", marginBottom: 16, flexWrap: "wrap" } as const,
+  row: {
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    marginBottom: 16,
+    flexWrap: "wrap",
+  } as const,
   empty: { color: "#8b949e", fontSize: 14, padding: "12px 0" } as const,
 
   primaryButton: {
@@ -782,6 +1011,17 @@ const S = {
     cursor: "pointer",
     fontSize: 13,
     fontFamily: "inherit",
+  } as const,
+  exploreButton: {
+    background: "#1f6feb",
+    color: "white",
+    border: "none",
+    padding: "8px 16px",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "inherit",
+    fontWeight: 600,
   } as const,
   uploadLabel: {
     background: "#21262d",
@@ -800,14 +1040,42 @@ const S = {
     borderRadius: 6,
     padding: 12,
   } as const,
-  sourceHead: { display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" } as const,
+  sourceHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  } as const,
   sourceName: { fontSize: 14, fontWeight: 600 } as const,
   sourcePath: { fontSize: 11, color: "#8b949e", marginTop: 2 } as const,
-  sourceMeta: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } as const,
+  sourceMeta: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    flexWrap: "wrap",
+  } as const,
   sourceSummary: { marginTop: 8, fontSize: 13, color: "#c9d1d9", lineHeight: 1.5 } as const,
 
-  filterRow: { display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" } as const,
-  filterLabel: { display: "flex", flexDirection: "column", fontSize: 11, color: "#8b949e", gap: 4 } as const,
+  filterRow: {
+    display: "flex",
+    gap: 12,
+    marginBottom: 14,
+    flexWrap: "wrap",
+    alignItems: "flex-end",
+  } as const,
+  filterLabel: {
+    display: "flex",
+    flexDirection: "column",
+    fontSize: 11,
+    color: "#8b949e",
+    gap: 4,
+  } as const,
+  countBadge: {
+    color: "#8b949e",
+    fontSize: 12,
+    alignSelf: "flex-end",
+    paddingBottom: 8,
+  } as const,
   input: {
     background: "#0d1117",
     color: "#e6edf3",
@@ -824,7 +1092,13 @@ const S = {
     borderRadius: 6,
     padding: 12,
   } as const,
-  chunkHead: { display: "flex", gap: 8, alignItems: "center", marginBottom: 6, flexWrap: "wrap" } as const,
+  chunkHead: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    marginBottom: 6,
+    flexWrap: "wrap",
+  } as const,
   chunkId: {
     background: "#21262d",
     color: "#79c0ff",
@@ -878,7 +1152,13 @@ const S = {
     borderRadius: 6,
     padding: 14,
   } as const,
-  blockHead: { display: "flex", gap: 10, alignItems: "center", marginBottom: 8, flexWrap: "wrap" } as const,
+  blockHead: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    marginBottom: 8,
+    flexWrap: "wrap",
+  } as const,
   blockTitle: { fontSize: 14, flex: 1, minWidth: 200 } as const,
   blockBadge: (type: BlockType) =>
     ({
@@ -901,8 +1181,19 @@ const S = {
     flexDirection: "column",
     gap: 4,
   } as const,
-  evidence: { fontSize: 12, color: "#8b949e", fontStyle: "italic", lineHeight: 1.5 } as const,
-  blockMeta: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", fontSize: 11 } as const,
+  evidence: {
+    fontSize: 12,
+    color: "#8b949e",
+    fontStyle: "italic",
+    lineHeight: 1.5,
+  } as const,
+  blockMeta: {
+    display: "flex",
+    gap: 6,
+    alignItems: "center",
+    flexWrap: "wrap",
+    fontSize: 11,
+  } as const,
   confidence: (c: number) =>
     ({
       background: c >= 0.75 ? "#1a7f37" : c >= 0.55 ? "#bf8700" : "#6e7681",
@@ -914,7 +1205,8 @@ const S = {
     }) as const,
   confidenceTag: (level: "low" | "medium" | "high") =>
     ({
-      background: level === "high" ? "#1a7f37" : level === "medium" ? "#bf8700" : "#6e7681",
+      background:
+        level === "high" ? "#1a7f37" : level === "medium" ? "#bf8700" : "#6e7681",
       color: "white",
       padding: "2px 10px",
       borderRadius: 3,
@@ -923,14 +1215,24 @@ const S = {
     }) as const,
 
   askRow: { display: "flex", gap: 8, marginBottom: 12 } as const,
-  suggestRow: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 } as const,
+  suggestRow: {
+    display: "flex",
+    gap: 6,
+    flexWrap: "wrap",
+    marginBottom: 16,
+  } as const,
   answerBox: {
     background: "#0d1117",
     border: "1px solid #30363d",
     borderRadius: 6,
     padding: 14,
   } as const,
-  answerHead: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } as const,
+  answerHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  } as const,
   answerText: {
     margin: 0,
     fontSize: 13,
@@ -939,10 +1241,20 @@ const S = {
     lineHeight: 1.6,
     fontFamily: "inherit",
   } as const,
-  sourcesBox: { marginTop: 12, paddingTop: 10, borderTop: "1px solid #21262d" } as const,
+  sourcesBox: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTop: "1px solid #21262d",
+  } as const,
   tagRow: { display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 } as const,
 
-  traceRow: { display: "flex", flexDirection: "column", gap: 6, padding: "10px 0", borderBottom: "1px solid #21262d" } as const,
+  traceRow: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    padding: "10px 0",
+    borderBottom: "1px solid #21262d",
+  } as const,
   traceValue: { fontSize: 14 } as const,
   traceChunk: {
     background: "#0d1117",
@@ -951,7 +1263,12 @@ const S = {
     padding: 10,
     marginBottom: 6,
   } as const,
-  warnBox: { background: "#3a2814", padding: 10, borderRadius: 4, marginTop: 10 } as const,
+  warnBox: {
+    background: "#3a2814",
+    padding: 10,
+    borderRadius: 4,
+    marginTop: 10,
+  } as const,
 
   tag: {
     background: "#21262d",

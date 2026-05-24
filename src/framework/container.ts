@@ -246,11 +246,16 @@ function makeStatus<TPort extends PortWithMetadata>(
   };
 }
 
-// Lazy shared container for simple consumers.
-let shared: FrameworkContainer | undefined;
+// Use globalThis so the singleton survives Next.js dev-mode hot reloads.
+declare global {
+  // eslint-disable-next-line no-var
+  var __frameworkContainer: FrameworkContainer | undefined;
+}
+
 export function getSharedFrameworkContainer(): FrameworkContainer {
-  if (!shared) shared = buildFrameworkContainer();
-  return shared;
+  if (!globalThis.__frameworkContainer)
+    globalThis.__frameworkContainer = buildFrameworkContainer();
+  return globalThis.__frameworkContainer;
 }
 
 /**
@@ -259,5 +264,5 @@ export function getSharedFrameworkContainer(): FrameworkContainer {
  * .env.local so the user does not have to restart the dev server.
  */
 export function resetSharedFrameworkContainer(): void {
-  shared = undefined;
+  globalThis.__frameworkContainer = undefined;
 }
