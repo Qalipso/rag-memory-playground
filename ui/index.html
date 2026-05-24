@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RAG Memory Playground — Comparison Mock</title>
+  <style>
+    :root {
+      --bg: #0a0b0f;
+      --surface: #14161d;
+      --surface-2: #1a1d26;
+      --border: #262a35;
+      --text: #e8eaf0;
+      --muted: #8b93a3;
+      --accent: #a78bfa;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --red: #f87171;
+      --mono: ui-monospace, "JetBrains Mono", Menlo, monospace;
+    }
+    * { box-sizing: border-box }
+    body {
+      margin: 0; font-family: -apple-system, "Inter", system-ui, sans-serif;
+      background: var(--bg); color: var(--text); line-height: 1.5;
+    }
+    header { padding: 16px 28px; border-bottom: 1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    h1 { font-size: 16px; margin: 0; font-weight: 600; }
+    .pill { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: rgba(167,139,250,0.15); color: var(--accent); }
+    main { padding: 24px 28px; }
+    h2 { font-size: 22px; margin: 0 0 4px; }
+    .sub { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
+    .columns { display: grid; grid-template-columns: 280px repeat(3, 1fr); gap: 12px; }
+    .row { display: contents; }
+    .row > div { background: var(--surface); border: 1px solid var(--border); padding: 14px 16px; }
+    .row.header > div { background: var(--surface-2); }
+    .pipeline-head { font-weight: 600; font-size: 14px; }
+    .pipeline-head .meta { color: var(--muted); font-size: 12px; font-weight: 400; margin-top: 4px; font-family: var(--mono); }
+    .label { font-size: 12px; color: var(--muted); }
+    .value { font-family: var(--mono); font-size: 16px; margin-top: 2px; }
+    .verdict { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; margin-top: 8px; }
+    .v-cheap { background: rgba(74,222,128,0.15); color: var(--green); }
+    .v-best { background: rgba(167,139,250,0.18); color: var(--accent); }
+    .v-dim { background: rgba(248,113,113,0.15); color: var(--red); }
+    .bar { height: 6px; border-radius: 4px; background: var(--surface-2); margin-top: 6px; overflow: hidden; }
+    .bar > span { display:block; height:100%; background: var(--accent); }
+    h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 28px 0 10px; font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+    .mono { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>RAG Memory Playground · acme-docs <span class="pill">Comparison</span></h1>
+    <span class="mono">sara@helix.co</span>
+  </header>
+  <main>
+    <h2>support-qa v1.1.0 · 25 queries · 3 pipelines</h2>
+    <p class="sub">v2 emerges as best value: faithfulness +8pp vs v1 for 1.4× the cost. v3 matches v2 on quality at 2.3× the cost.</p>
+
+    <div class="columns">
+      <div class="row header">
+        <div class="label">Metric</div>
+        <div class="pipeline-head">v1-baseline<div class="meta">gpt-4o-mini · k=6 · no rerank</div></div>
+        <div class="pipeline-head">v2-rerank-large<div class="meta">gpt-4o · k=12 → 4 · cohere-rerank-3</div></div>
+        <div class="pipeline-head">v3-bge-local<div class="meta">claude-sonnet · k=10 → 5 · bge-rerank</div></div>
+      </div>
+
+      <div class="row">
+        <div class="label">Faithfulness</div>
+        <div><div class="value">0.78</div><div class="bar"><span style="width:78%"></span></div></div>
+        <div><div class="value">0.86</div><div class="bar"><span style="width:86%"></span></div></div>
+        <div><div class="value">0.87</div><div class="bar"><span style="width:87%"></span></div></div>
+      </div>
+
+      <div class="row">
+        <div class="label">Answer relevance</div>
+        <div><div class="value">0.81</div><div class="bar"><span style="width:81%"></span></div></div>
+        <div><div class="value">0.88</div><div class="bar"><span style="width:88%"></span></div></div>
+        <div><div class="value">0.87</div><div class="bar"><span style="width:87%"></span></div></div>
+      </div>
+
+      <div class="row">
+        <div class="label">Context recall</div>
+        <div><div class="value">0.62</div><div class="bar"><span style="width:62%"></span></div></div>
+        <div><div class="value">0.81</div><div class="bar"><span style="width:81%"></span></div></div>
+        <div><div class="value">0.79</div><div class="bar"><span style="width:79%"></span></div></div>
+      </div>
+
+      <div class="row">
+        <div class="label">LLM-judge</div>
+        <div><div class="value">0.74</div></div>
+        <div><div class="value">0.85</div></div>
+        <div><div class="value">0.86</div></div>
+      </div>
+
+      <div class="row">
+        <div class="label">Cost / 25 queries</div>
+        <div><div class="value">$0.13</div></div>
+        <div><div class="value">$0.18</div></div>
+        <div><div class="value">$0.41</div></div>
+      </div>
+
+      <div class="row">
+        <div class="label">p95 latency</div>
+        <div><div class="value">1820 ms</div></div>
+        <div><div class="value">2240 ms</div></div>
+        <div><div class="value">3140 ms</div></div>
+      </div>
+
+      <div class="row">
+        <div class="label">Verdict</div>
+        <div><span class="verdict v-cheap">cheapest acceptable</span></div>
+        <div><span class="verdict v-best">best value</span></div>
+        <div><span class="verdict v-dim">diminishing returns</span></div>
+      </div>
+    </div>
+
+    <h3>Per-query drill-down</h3>
+    <table>
+      <thead><tr><th>#</th><th>Question</th><th>v1 score</th><th>v2 score</th><th>v3 score</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">001</td><td>How do I reset my password?</td><td>0.82</td><td>0.91</td><td>0.90</td></tr>
+        <tr><td class="mono">002</td><td>Can I cancel mid-month?</td><td>0.61</td><td>0.84</td><td>0.85</td></tr>
+        <tr><td class="mono">003</td><td>Does Enterprise include SAML SSO?</td><td>0.74</td><td>0.88</td><td>0.89</td></tr>
+        <tr><td class="mono">004</td><td>API rate limit on Pro plan?</td><td>0.79</td><td>0.86</td><td>0.86</td></tr>
+        <tr><td class="mono">005</td><td>Deleted record retention?</td><td>0.71</td><td>0.83</td><td>0.84</td></tr>
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

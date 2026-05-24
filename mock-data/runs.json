@@ -1,0 +1,43 @@
+[
+  {
+    "id": "run_v1_vs_v2_vs_v3",
+    "ground_truth_set_id": "gt_support_qa",
+    "pipeline_version_ids": ["pl_v1", "pl_v2", "pl_v3"],
+    "created_at": "2026-05-10T14:00:00Z",
+    "summary": [
+      {
+        "pipeline": "pl_v1",
+        "faithfulness": 0.78,
+        "answer_relevance": 0.81,
+        "context_precision": 0.72,
+        "context_recall": 0.62,
+        "llm_judge": 0.74,
+        "cost_usd": 0.13,
+        "p95_latency_ms": 1820,
+        "verdict": "cheapest acceptable"
+      },
+      {
+        "pipeline": "pl_v2",
+        "faithfulness": 0.86,
+        "answer_relevance": 0.88,
+        "context_precision": 0.84,
+        "context_recall": 0.81,
+        "llm_judge": 0.85,
+        "cost_usd": 0.18,
+        "p95_latency_ms": 2240,
+        "verdict": "best value"
+      },
+      {
+        "pipeline": "pl_v3",
+        "faithfulness": 0.87,
+        "answer_relevance": 0.87,
+        "context_precision": 0.83,
+        "context_recall": 0.79,
+        "llm_judge": 0.86,
+        "cost_usd": 0.41,
+        "p95_latency_ms": 3140,
+        "verdict": "diminishing returns"
+      }
+    ]
+  }
+]

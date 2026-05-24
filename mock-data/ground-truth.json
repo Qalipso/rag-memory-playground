@@ -1,0 +1,37 @@
+{
+  "id": "gt_support_qa",
+  "name": "support-qa",
+  "version": "1.1.0",
+  "rows": [
+    {
+      "id": "gt_001",
+      "question": "How do I reset my password?",
+      "ideal_answer": "Use the 'Forgot password' link on the login page. You will receive a reset email valid for 30 minutes.",
+      "source_doc_ids": ["doc_user_guide_v4"]
+    },
+    {
+      "id": "gt_002",
+      "question": "Can I cancel my subscription mid-month?",
+      "ideal_answer": "Yes. Cancellation is effective immediately and we prorate the unused portion as a credit to your next bill.",
+      "source_doc_ids": ["doc_billing_policy"]
+    },
+    {
+      "id": "gt_003",
+      "question": "Does the Enterprise plan include SSO with SAML?",
+      "ideal_answer": "Yes. The Enterprise plan supports SAML 2.0 SSO with major identity providers including Okta, Azure AD, and Google Workspace.",
+      "source_doc_ids": ["doc_security_overview", "doc_plan_comparison"]
+    },
+    {
+      "id": "gt_004",
+      "question": "What is the API rate limit on the Pro plan?",
+      "ideal_answer": "Pro plan API calls are limited to 60 requests per minute per workspace.",
+      "source_doc_ids": ["doc_api_reference"]
+    },
+    {
+      "id": "gt_005",
+      "question": "How long are deleted records retained?",
+      "ideal_answer": "Deleted records are retained in soft-delete state for 30 days, then permanently removed.",
+      "source_doc_ids": ["doc_data_retention"]
+    }
+  ]
+}
