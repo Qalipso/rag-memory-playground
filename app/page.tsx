@@ -43,6 +43,19 @@ export default function HomePage() {
           Pipeline compare →
         </Link>
         <Link
+          href="/eval"
+          style={{
+            background: "#6e40c9",
+            color: "white",
+            textDecoration: "none",
+            padding: "10px 18px",
+            borderRadius: 4,
+            display: "inline-block",
+          }}
+        >
+          Golden eval →
+        </Link>
+        <Link
           href="/rag-memory-playground"
           style={{
             background: "#21262d",
