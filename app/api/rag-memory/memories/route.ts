@@ -1,47 +1,34 @@
-/**
- * Next.js App Router endpoint: GET /api/rag-memory/memories?userId=demo-user
- *
- * Returns every memory the active MemoryProvider holds for a user, plus
- * provider status, so the memory-graph tab can render the full store.
- */
+import { NextRequest, NextResponse } from "next/server";
 
-import { getSharedFrameworkContainer } from "../../../../src/framework";
+// Stub memories for portfolio demo — no backend required.
+const STUB_MEMORIES = [
+  { id: "mem-1", type: "semantic", content: "RAG pipeline chunks docs into 800-char segments with 80-char overlap", score: 0.91, reason: "Extracted from architecture.md" },
+  { id: "mem-2", type: "semantic", content: "Block types: Feature, Decision, Risk, Todo, Concept", score: 0.88, reason: "Extracted from extractor.ts" },
+  { id: "mem-3", type: "episodic", content: "User loaded architecture.md and asked about storage decisions", score: 0.82, reason: "Session event" },
+  { id: "mem-4", type: "episodic", content: "User ran Golden Eval Suite — 4/5 pairs passed", score: 0.79, reason: "Eval session event" },
+  { id: "mem-5", type: "procedural", content: "To retrieve: tokenize → expand stems → score chunks by TF + keyword boost", score: 0.87, reason: "Inferred from retrieval.ts" },
+  { id: "mem-6", type: "procedural", content: "Confidence levels: low (<1.0 top score), medium, high (≥3.0 or ≥4 hits)", score: 0.83, reason: "Inferred from retrieval.ts" },
+  { id: "mem-7", type: "working", content: "Active question: What file types can be uploaded?", score: 0.95, reason: "Current session context" },
+  { id: "mem-8", type: "working", content: "Last retrieved sources: README.md, architecture.md", score: 0.93, reason: "Current session context" },
+  { id: "mem-9", type: "semantic", content: "Storage is fully in-browser — no backend, no server DB", score: 0.9, reason: "Extracted from rag-settings.md" },
+  { id: "mem-10", type: "semantic", content: "PromptOps stores versioned prompt assets linked to memory blocks", score: 0.85, reason: "Extracted from promptops-notes.md" },
+];
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
+export function GET(req: NextRequest) {
+  const userId = new URL(req.url).searchParams.get("userId") ?? "demo-user";
+  return NextResponse.json({
+    userId,
+    provider: {
+      name: "stub-store",
+      framework: "in-memory",
+      mode: "stub",
+      reason: "Portfolio demo — no backend required",
+    },
+    memories: STUB_MEMORIES,
+    count: STUB_MEMORIES.length,
   });
 }
 
-export async function GET(req: Request): Promise<Response> {
-  const url = new URL(req.url);
-  const userId = url.searchParams.get("userId");
-
-  if (!userId || userId.trim().length === 0) {
-    return jsonResponse({ error: "Query param 'userId' is required." }, 400);
-  }
-
-  const limitRaw = url.searchParams.get("limit");
-  const limit = limitRaw ? Math.max(1, Math.min(500, parseInt(limitRaw, 10))) : 200;
-
-  try {
-    const { providers, providerStatus } = getSharedFrameworkContainer();
-    const memories = await providers.memory.listAll({ userId, limit });
-
-    const memoryStatus = providerStatus.find((p) => p.role === "memory");
-
-    return jsonResponse({
-      userId,
-      provider: memoryStatus ?? null,
-      memories,
-      count: memories.length,
-    });
-  } catch (error) {
-    console.error("[memories] listAll failed:", error);
-    return jsonResponse(
-      { error: "Failed to list memories. See server logs." },
-      500
-    );
-  }
+export function POST() {
+  return NextResponse.json({ error: "Write not available in portfolio demo" }, { status: 501 });
 }

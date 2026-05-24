@@ -297,21 +297,33 @@ function composeTyped(
   retrieved: RetrievedChunk[],
   confidence: "low" | "medium" | "high",
 ): string {
-  const relevant = pickByType(blocks, intent, 6);
+  const relevant = pickByType(blocks, intent, 5);
   const lines: string[] = [];
 
   if (relevant.length === 0) {
-    lines.push(`No ${intent.toLowerCase()} block extracted directly. Closest evidence:`);
-    for (const r of retrieved.slice(0, 3)) lines.push(`- ${r.sourceName}: ${r.preview}`);
+    // Fall back to chunk excerpts
+    for (let i = 0; i < Math.min(2, retrieved.length); i++) {
+      if (i > 0) lines.push("");
+      lines.push(retrieved[i]!.preview);
+    }
+    if (lines.length === 0) lines.push(`No ${intent.toLowerCase()} information found in the indexed sources.`);
     appendConfidence(lines, confidence);
     return lines.join("\n");
   }
 
-  lines.push(`Found ${relevant.length} ${intent.toLowerCase()} item${relevant.length === 1 ? "" : "s"}:`);
-  for (const b of relevant) {
-    const src = b.sources.length > 0 ? ` (${b.sources.join(", ")})` : "";
-    lines.push(`- ${b.title}${src}`);
+  // Lead with best block summary (most natural sentence)
+  lines.push(relevant[0].summary);
+
+  // List additional items concisely
+  if (relevant.length > 1) {
+    lines.push("");
+    lines.push(`Other ${intent.toLowerCase()} items:`);
+    for (const b of relevant.slice(1)) {
+      const src = b.sources.length > 0 ? ` (${b.sources[0]})` : "";
+      lines.push(`- ${b.title}${src}`);
+    }
   }
+
   appendConfidence(lines, confidence);
   return lines.join("\n");
 }
@@ -322,15 +334,24 @@ function composeGeneric(
   confidence: "low" | "medium" | "high",
 ): string {
   const lines: string[] = [];
-  if (blocks.length > 0) {
-    lines.push("Top matches:");
-    for (const b of blocks.slice(0, 4)) lines.push(`- [${b.type}] ${b.title}`);
+
+  // Lead with verbatim excerpts from top retrieved chunks
+  for (let i = 0; i < Math.min(2, retrieved.length); i++) {
+    if (i > 0) lines.push("");
+    lines.push(retrieved[i].preview);
+  }
+
+  // Supplement with block context — use summary (natural sentence), filter junk titles
+  const useful = blocks
+    .filter((b) => b.title.replace(/[^a-zA-Z]/g, "").length >= 5 && b.summary.length > 10)
+    .slice(0, 3);
+  if (useful.length > 0) {
     lines.push("");
+    for (const b of useful) {
+      lines.push(`${b.type}: ${b.summary}`);
+    }
   }
-  if (retrieved.length > 0) {
-    lines.push(`Evidence from ${retrieved.length} chunk${retrieved.length === 1 ? "" : "s"}:`);
-    for (const r of retrieved.slice(0, 3)) lines.push(`- ${r.sourceName}: ${r.preview}`);
-  }
+
   appendConfidence(lines, confidence);
   return lines.join("\n");
 }
@@ -361,7 +382,7 @@ function detectIntent(terms: string[]): Intent {
   if (terms.some((t) => ["risk", "risks", "issue", "issues", "problem", "blocker", "gotcha"].includes(t))) return "Risk";
   if (terms.some((t) => ["todo", "todos", "fix", "missing", "next", "build", "implement"].includes(t))) return "Todo";
   if (terms.some((t) => ["feature", "features", "supports", "allows", "functionality"].includes(t))) return "Feature";
-  if (terms.some((t) => ["decision", "decided", "rationale", "architecture"].includes(t))) return "Decision";
+  if (terms.some((t) => ["decision", "decided", "rationale", "architecture", "backend", "browser", "store", "stores", "database", "storage"].includes(t))) return "Decision";
   if (terms.some((t) => ["about", "overview", "summary", "purpose", "describe", "described", "project"].includes(t))) return "Overview";
   return "Generic";
 }
