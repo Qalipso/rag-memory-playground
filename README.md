@@ -1,5 +1,7 @@
 # RAG Memory Playground
 
+> **Current state (Phase 0):** In-browser UI mock + keyword retrieval engine. LangGraph, LlamaIndex, Mem0, and Langfuse are roadmapped integrations — not yet implemented. The packages listed in package.json are reserved slots. Real embedding mode ships in Sprint 4.
+
 > A sandbox where teams can prototype, evaluate, and compare retrieval-augmented generation pipelines side-by-side. Configure chunker, embedder, retriever, reranker, and generator — run identical queries — measure faithfulness, answer relevance, context precision/recall, latency, and cost.
 
 ---

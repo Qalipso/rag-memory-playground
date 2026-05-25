@@ -2,35 +2,21 @@
   "name": "rag-memory-playground",
   "version": "0.3.0",
   "private": true,
-  "description": "Framework-first RAG Memory engine. LangGraph + LlamaIndex.TS + Mem0 + Langfuse + Ragas-shaped evaluation. Exposes ExplainableRun.",
+  "description": "In-browser RAG pipeline sandbox. Phase 0: keyword retrieval UI mock. Phase 4 (planned): real embedding via OpenAI.",
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3015",
     "build": "next build",
     "start": "next start -p 3015",
     "build:tsc": "tsc -p tsconfig.json",
-    "demo": "tsx scripts/demo.ts",
-    "demo:framework": "tsx scripts/demo-framework.ts",
-    "rag:demo": "tsx scripts/demo-framework.ts",
-    "ingest": "tsx scripts/ingest-docs.ts",
-    "migrate": "tsx scripts/migrate.ts",
     "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cosmograph/react": "^2.3.2",
-    "@langchain/core": "^1.0.0",
-    "@langchain/langgraph": "^1.0.0",
     "dotenv": "^16.4.5",
-    "langfuse": "^3.30.0",
-    "llamaindex": "^0.8.20",
-    "mem0ai": "^2.1.0",
     "next": "^15.5.18",
-    "openai": "^4.65.0",
-    "pg": "8.11.3",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-force-graph-2d": "^1.29.1"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",
