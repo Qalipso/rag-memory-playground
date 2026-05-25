@@ -1,14 +1,15 @@
 /**
  * RAG Memory Playground MVP types.
  *
- * Pure in-browser RAG: file -> chunks -> memory blocks -> retrieval -> answer.
- * No backend, no LLM, no embeddings. Heuristic only.
+ * Phase 0: keyword retrieval (heuristic, no LLM).
+ * Phase 1 (S4): real OpenAI embeddings via /api/embed + cosine similarity.
  */
 
 export type FileKind = "md" | "txt" | "json" | "code" | "unknown";
 export type ChunkType = "docs" | "code" | "config" | "unknown";
 export type BlockType = "Feature" | "Decision" | "Risk" | "Todo" | "Concept";
 export type SourceStatus = "indexed" | "skipped";
+export type RetrievalMode = "keyword" | "embedding";
 
 export interface SourceFile {
   id: string;
@@ -31,6 +32,8 @@ export interface MemoryChunk {
   type: ChunkType;
   charCount: number;
   keywords: string[];
+  /** Populated after embedChunks() call. 1536-dim OpenAI embedding. */
+  embedding?: number[];
 }
 
 export interface MemoryBlock {
@@ -66,11 +69,14 @@ export interface RetrievalTrace {
 
 /** Ragas-shaped deterministic evaluation scores (0–1 each). */
 export interface EvalResult {
-  faithfulness:     number; // answer grounded in retrieved context
+  faithfulness:     number; // answer grounded in retrieved context (heuristic)
   answerRelevancy:  number; // answer addresses the question
   contextPrecision: number; // retrieved chunks are on-topic
   contextRecall:    number; // context covers the question's info need
   overall:          number; // weighted composite
+  /** Real LLM faithfulness score when /api/faithfulness was called. */
+  llmFaithfulness?: number;
+  llmFaithfulnessRationale?: string;
   /** @internal */
   _n: number;
 }

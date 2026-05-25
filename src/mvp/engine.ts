@@ -2,12 +2,19 @@ import { buildChunks } from "./chunker";
 import { extractBlocks } from "./extractor";
 import { evaluate } from "./evaluator";
 import { retrieve } from "./retrieval";
+import {
+  clearEmbeddingCache,
+  embedTexts,
+  retrieveByEmbedding,
+} from "./embedder";
 import type {
   AskResult,
+  EvalResult,
   FileKind,
   MemoryBlock,
   MemoryChunk,
   RetrievalTrace,
+  RetrievedChunk,
   SourceFile,
   SourceStatus,
 } from "./types";
@@ -106,14 +113,6 @@ export class RagMemoryEngine {
     };
   }
 
-  reset(): void {
-    this.sources = [];
-    this.chunks = [];
-    this.blocks = [];
-    this.lastTrace = null;
-    this.idCounter = 0;
-  }
-
   getSources(): SourceFile[] {
     return this.sources;
   }
@@ -155,6 +154,102 @@ export class RagMemoryEngine {
     return this.lastTrace;
   }
 
+  /**
+   * Embed all indexed chunks via /api/embed.
+   * Returns cost + count. Idempotent — cached chunks are not re-embedded.
+   */
+  async embedChunks(): Promise<{ cost_usd: number; total: number; cached: number }> {
+    const indexed = this.chunks;
+    if (indexed.length === 0) return { cost_usd: 0, total: 0, cached: 0 };
+
+    const texts = indexed.map((c) => c.text);
+    const result = await embedTexts(texts);
+
+    // Attach embeddings to chunk objects in place
+    for (let i = 0; i < indexed.length; i++) {
+      indexed[i]!.embedding = result.embeddings[i];
+    }
+
+    return {
+      cost_usd: result.cost_usd,
+      total: indexed.length,
+      cached: result.cached_count,
+    };
+  }
+
+  /**
+   * Ask a question using embedding-based retrieval.
+   * Requires embedChunks() to have been called first (or embedChunks will be called inline).
+   */
+  async askByEmbedding(question: string, topK = 5): Promise<AskResult & { embed_cost_usd: number }> {
+    // Embed query
+    const queryResult = await embedTexts([question]);
+    const queryEmbedding = queryResult.embeddings[0]!;
+
+    const embedded = retrieveByEmbedding(queryEmbedding, this.chunks, topK);
+
+    const retrieved: RetrievedChunk[] = embedded.map((e) => ({
+      chunkId: e.chunk.id,
+      sourceName: e.chunk.sourceName,
+      preview: e.chunk.text.slice(0, 200).replace(/\s+/g, " "),
+      score: Math.round(e.score * 100) / 100,
+      matchedTerms: [],
+    }));
+
+    const finalSources = unique(retrieved.map((r) => r.sourceName));
+    const topScore = embedded[0]?.score ?? 0;
+    const confidence: "low" | "medium" | "high" =
+      topScore > 0.75 ? "high" : topScore > 0.55 ? "medium" : "low";
+
+    const warnings: string[] = [];
+    if (retrieved.length === 0) warnings.push("No chunks with embeddings found. Run 'Embed corpus' first.");
+    if (confidence === "low") warnings.push("Low similarity — query may not match the indexed corpus.");
+
+    const answer = composeEmbedAnswer(retrieved, embedded, confidence);
+
+    const trace: RetrievalTrace = {
+      question,
+      queryTerms: [],
+      searchedSourcesCount: this.sources.filter((s) => s.status === "indexed").length,
+      searchedChunksCount: this.chunks.filter((c) => c.embedding !== undefined).length,
+      retrievedChunks: retrieved,
+      matchedBlocks: [],
+      finalSources,
+      confidence,
+      warnings,
+    };
+    this.lastTrace = trace;
+
+    const chunkTexts = embedded.map((e) => e.chunk.text);
+    const evalResult: EvalResult = evaluate({
+      question,
+      answer,
+      queryTerms: [],
+      retrievedChunks: retrieved,
+      chunkTexts,
+    });
+
+    return {
+      answer,
+      sources: finalSources,
+      chunks: retrieved,
+      blocks: [],
+      confidence,
+      trace,
+      eval: evalResult,
+      embed_cost_usd: queryResult.cost_usd,
+    };
+  }
+
+  reset(): void {
+    this.sources = [];
+    this.chunks = [];
+    this.blocks = [];
+    this.lastTrace = null;
+    this.idCounter = 0;
+    clearEmbeddingCache();
+  }
+
   private nextId(prefix: string): string {
     this.idCounter += 1;
     return `${prefix}-${this.idCounter}`;
@@ -192,6 +287,38 @@ function looksBinary(content: string): boolean {
     if (code < 9 || (code > 13 && code < 32)) nonPrintable += 1;
   }
   return nonPrintable / Math.max(1, head.length) > 0.1;
+}
+
+function unique<T>(arr: T[]): T[] {
+  return Array.from(new Set(arr));
+}
+
+function composeEmbedAnswer(
+  retrieved: RetrievedChunk[],
+  embedded: Array<{ chunk: MemoryChunk; score: number }>,
+  confidence: "low" | "medium" | "high",
+): string {
+  if (retrieved.length === 0) {
+    return "No relevant content found. Ensure files are indexed and corpus is embedded before querying.";
+  }
+
+  const lines: string[] = [];
+  const top = embedded.slice(0, 2);
+
+  for (let i = 0; i < top.length; i++) {
+    const chunk = top[i]!.chunk;
+    const excerpt = chunk.text.slice(0, 280).replace(/\s+/g, " ").trim();
+    lines.push(i === 0 ? excerpt : `\nAdditional context: ${excerpt}`);
+  }
+
+  const sources = unique(retrieved.map((r) => r.sourceName));
+  lines.push(`\nSources: ${sources.join(", ")}.`);
+
+  if (confidence === "low") {
+    lines.push("\nConfidence: low — cosine similarity below threshold.");
+  }
+
+  return lines.join("\n");
 }
 
 function summarize(content: string, kind: FileKind): string {

@@ -22,6 +22,7 @@ import type {
   EvalResult,
   MemoryBlock,
   MemoryChunk,
+  RetrievalMode,
   RetrievalTrace,
   SourceFile,
 } from "../src/mvp/types";
@@ -79,6 +80,12 @@ export default function PlaygroundPage() {
 
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
+  const [retrievalMode, setRetrievalMode] = useState<RetrievalMode>("keyword");
+  const [embedStatus, setEmbedStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [embedCost, setEmbedCost] = useState(0);
+  const [embedError, setEmbedError] = useState<string | null>(null);
+  const [llmFaith, setLlmFaith] = useState<{ score: number; rationale: string } | null>(null);
+  const [llmFaithLoading, setLlmFaithLoading] = useState(false);
 
   // Chunks sub-tab filters
   const [chunkFilterSource, setChunkFilterSource] = useState<string>("all");
@@ -184,29 +191,84 @@ export default function PlaygroundPage() {
     [ingest],
   );
 
-  const ask = useCallback(() => {
+  const ask = useCallback(async () => {
     const q = question.trim();
     if (!q) return;
     setAsking(true);
-    setTimeout(() => {
-      const r = engine.ask(q);
-      setResult(r);
-      setTrace(r.trace);
+    setLlmFaith(null);
+    try {
+      if (retrievalMode === "embedding") {
+        const r = await engine.askByEmbedding(q);
+        setResult(r);
+        setTrace(r.trace);
+      } else {
+        await new Promise<void>((resolve) => {
+          setTimeout(() => {
+            const r = engine.ask(q);
+            setResult(r);
+            setTrace(r.trace);
+            resolve();
+          }, 50);
+        });
+      }
+    } catch (err) {
+      console.error("ask error", err);
+    } finally {
       setAsking(false);
-    }, 50);
-  }, [engine, question]);
+    }
+  }, [engine, question, retrievalMode]);
 
   const askSuggestion = useCallback(
-    (q: string) => {
+    async (q: string) => {
       setQuestion(q);
-      const r = engine.ask(q);
-      setResult(r);
-      setTrace(r.trace);
+      setLlmFaith(null);
+      if (retrievalMode === "embedding") {
+        const r = await engine.askByEmbedding(q);
+        setResult(r);
+        setTrace(r.trace);
+      } else {
+        const r = engine.ask(q);
+        setResult(r);
+        setTrace(r.trace);
+      }
       setTopTab("explore");
       setExploreTab("ask");
     },
-    [engine],
+    [engine, retrievalMode],
   );
+
+  const embedCorpus = useCallback(async () => {
+    setEmbedStatus("running");
+    setEmbedError(null);
+    try {
+      const res = await engine.embedChunks();
+      setEmbedCost((prev) => prev + res.cost_usd);
+      setEmbedStatus("done");
+    } catch (err) {
+      setEmbedError(err instanceof Error ? err.message : "Embedding failed");
+      setEmbedStatus("error");
+    }
+  }, [engine]);
+
+  const runLLMFaithfulness = useCallback(async () => {
+    if (!result) return;
+    setLlmFaithLoading(true);
+    try {
+      const contexts = result.chunks.map((c) => c.preview);
+      const res = await fetch("/api/faithfulness", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answer: result.answer, contexts }),
+      });
+      const data = await res.json() as { score?: number; rationale?: string; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Faithfulness API error");
+      setLlmFaith({ score: data.score ?? 0, rationale: data.rationale ?? "" });
+    } catch (err) {
+      setLlmFaith({ score: -1, rationale: err instanceof Error ? err.message : "Error" });
+    } finally {
+      setLlmFaithLoading(false);
+    }
+  }, [result]);
 
   const goExplore = useCallback(() => {
     setTopTab("explore");
@@ -334,6 +396,15 @@ export default function PlaygroundPage() {
               onQuestion={setQuestion}
               onAsk={ask}
               onSuggest={askSuggestion}
+              retrievalMode={retrievalMode}
+              onModeChange={(m) => { setRetrievalMode(m); setLlmFaith(null); }}
+              embedStatus={embedStatus}
+              embedCost={embedCost}
+              embedError={embedError}
+              onEmbedCorpus={embedCorpus}
+              llmFaith={llmFaith}
+              llmFaithLoading={llmFaithLoading}
+              onLLMFaithfulness={runLLMFaithfulness}
             />
           )}
           {exploreTab === "trace" && <TracePanel trace={trace} />}
@@ -679,50 +750,125 @@ function AskPanel(props: {
   onQuestion: (v: string) => void;
   onAsk: () => void;
   onSuggest: (q: string) => void;
+  retrievalMode: RetrievalMode;
+  onModeChange: (m: RetrievalMode) => void;
+  embedStatus: "idle" | "running" | "done" | "error";
+  embedCost: number;
+  embedError: string | null;
+  onEmbedCorpus: () => void;
+  llmFaith: { score: number; rationale: string } | null;
+  llmFaithLoading: boolean;
+  onLLMFaithfulness: () => void;
 }) {
+  const isEmbedMode = props.retrievalMode === "embedding";
+  const corpusReady = props.embedStatus === "done";
+
   return (
     <section style={S.section}>
       {!props.hasData && (
         <p style={S.empty}>No data loaded. Go to Setup and load files first.</p>
       )}
 
+      {/* Mode toggle */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center" }}>
+        <span style={{ fontSize: 12, color: "#8b949e" }}>Retrieval:</span>
+        {(["keyword", "embedding"] as RetrievalMode[]).map((m) => (
+          <button
+            key={m}
+            style={{
+              padding: "4px 12px",
+              fontSize: 12,
+              borderRadius: 4,
+              border: `1px solid ${props.retrievalMode === m ? "#58a6ff" : "#30363d"}`,
+              background: props.retrievalMode === m ? "#1f6feb33" : "transparent",
+              color: props.retrievalMode === m ? "#58a6ff" : "#8b949e",
+              cursor: "pointer",
+            }}
+            onClick={() => props.onModeChange(m)}
+          >
+            {m}
+          </button>
+        ))}
+        {isEmbedMode && (
+          <button
+            style={{
+              padding: "4px 12px",
+              fontSize: 12,
+              borderRadius: 4,
+              border: `1px solid ${corpusReady ? "#3fb950" : "#f0883e"}`,
+              background: corpusReady ? "#1a7f3722" : "#bf870022",
+              color: corpusReady ? "#3fb950" : "#f0883e",
+              cursor: props.embedStatus === "running" ? "not-allowed" : "pointer",
+            }}
+            disabled={!props.hasData || props.embedStatus === "running"}
+            onClick={props.onEmbedCorpus}
+          >
+            {props.embedStatus === "running"
+              ? "Embedding…"
+              : corpusReady
+              ? `Corpus embedded${props.embedCost > 0 ? ` ($${props.embedCost.toFixed(5)})` : ""}`
+              : "Embed corpus"}
+          </button>
+        )}
+        {isEmbedMode && props.embedError && (
+          <span style={{ fontSize: 11, color: "#ff7b72" }}>{props.embedError}</span>
+        )}
+        {isEmbedMode && !corpusReady && props.embedStatus !== "running" && props.embedStatus !== "error" && (
+          <span style={{ fontSize: 11, color: "#8b949e" }}>← embed before querying</span>
+        )}
+      </div>
+
       <div style={S.askRow}>
         <input
           style={{ ...S.input, flex: 1 }}
           value={props.question}
           onChange={(e) => props.onQuestion(e.target.value)}
-          placeholder="Ask a question about the loaded sources…"
+          placeholder={
+            isEmbedMode
+              ? "Ask a question (embedding retrieval)…"
+              : "Ask a question about the loaded sources…"
+          }
           onKeyDown={(e) => {
             if (e.key === "Enter") props.onAsk();
           }}
-          disabled={!props.hasData || props.asking}
+          disabled={!props.hasData || props.asking || (isEmbedMode && !corpusReady)}
         />
         <button
           style={S.primaryButton}
           onClick={props.onAsk}
-          disabled={!props.hasData || props.asking || !props.question.trim()}
+          disabled={
+            !props.hasData ||
+            props.asking ||
+            !props.question.trim() ||
+            (isEmbedMode && !corpusReady)
+          }
         >
-          {props.asking ? "Searching…" : "Ask"}
+          {props.asking ? (isEmbedMode ? "Embedding query…" : "Searching…") : "Ask"}
         </button>
       </div>
 
-      <div style={S.suggestRow}>
-        {SUGGESTIONS.map((s) => (
-          <button
-            key={s}
-            style={S.chip}
-            disabled={!props.hasData}
-            onClick={() => props.onSuggest(s)}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+      {!isEmbedMode && (
+        <div style={S.suggestRow}>
+          {SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              style={S.chip}
+              disabled={!props.hasData}
+              onClick={() => props.onSuggest(s)}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {props.result && (
         <div style={S.answerBox}>
           <div style={S.answerHead}>
             <strong>Answer</strong>
+            <span style={{ fontSize: 11, color: "#8b949e", marginLeft: 8 }}>
+              [{isEmbedMode ? "embedding" : "keyword"}]
+            </span>
             <span style={S.confidenceTag(props.result.confidence)}>
               confidence: {props.result.confidence}
             </span>
@@ -760,6 +906,64 @@ function AskPanel(props: {
               <EvalScorecard ev={props.result.eval} />
             </div>
           )}
+
+          {/* LLM Faithfulness judge */}
+          <div style={{ marginTop: 12 }}>
+            <button
+              style={{
+                padding: "4px 12px",
+                fontSize: 12,
+                borderRadius: 4,
+                border: "1px solid #30363d",
+                background: "transparent",
+                color: "#8b949e",
+                cursor: props.llmFaithLoading ? "not-allowed" : "pointer",
+              }}
+              disabled={props.llmFaithLoading}
+              onClick={props.onLLMFaithfulness}
+            >
+              {props.llmFaithLoading ? "Scoring…" : "Score faithfulness with real LLM"}
+            </button>
+
+            {props.llmFaith && props.llmFaith.score >= 0 && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: "10px 14px",
+                  background: "#161b22",
+                  border: "1px solid #30363d",
+                  borderRadius: 6,
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: "#8b949e", fontWeight: 600 }}>
+                    LLM FAITHFULNESS (GPT-4o-mini)
+                  </span>
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      color:
+                        props.llmFaith.score >= 0.7
+                          ? "#3fb950"
+                          : props.llmFaith.score >= 0.4
+                          ? "#f0883e"
+                          : "#ff7b72",
+                    }}
+                  >
+                    {props.llmFaith.score.toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ color: "#8b949e", fontSize: 12 }}>{props.llmFaith.rationale}</div>
+              </div>
+            )}
+
+            {props.llmFaith && props.llmFaith.score < 0 && (
+              <div style={{ marginTop: 8, fontSize: 12, color: "#ff7b72" }}>
+                {props.llmFaith.rationale}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>
