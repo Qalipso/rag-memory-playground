@@ -30,19 +30,6 @@ export default function HomePage() {
           Open MVP playground →
         </Link>
         <Link
-          href="/compare"
-          style={{
-            background: "#1f6feb",
-            color: "white",
-            textDecoration: "none",
-            padding: "10px 18px",
-            borderRadius: 4,
-            display: "inline-block",
-          }}
-        >
-          Pipeline compare →
-        </Link>
-        <Link
           href="/eval"
           style={{
             background: "#6e40c9",

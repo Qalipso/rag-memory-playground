@@ -42,6 +42,7 @@ interface KnowledgeSource {
   charsExtracted: number;
   chunksCreated: number;
   providerMode: "real" | "stub" | "fallback";
+  contentPreview?: string;
 }
 
 interface SourcesResponse {
@@ -60,6 +61,7 @@ interface GraphNode {
   size: number;
   kind: NodeKind;
   detail: string;
+  content?: string;
   url: string;
   memoryType?: MemoryItem["type"];
   status?: string;
@@ -268,6 +270,9 @@ export default function MemoryGraph({ userId }: { userId: string }) {
             )}
           </div>
           <p style={S.detailBody}>{selected.detail || selected.label}</p>
+          {selected.content && (
+            <pre style={S.contentBox}>{selected.content}</pre>
+          )}
         </div>
       )}
 
@@ -377,6 +382,7 @@ function buildGraph(
         size: Math.min(7, 3 + Math.log2(Math.max(1, s.chunksCreated))),
         kind: "doc",
         detail: `${s.title} · ${s.chunksCreated} chunks · ${s.charsExtracted.toLocaleString()} chars · ${s.status}`,
+        content: s.contentPreview,
         url: s.url ?? "",
         status: s.status,
       });
@@ -501,6 +507,21 @@ const S = {
   } as const,
   tag: { padding: "2px 8px", borderRadius: 3, fontSize: 11, fontWeight: 600 } as const,
   urlLink: { color: "#79c0ff", fontSize: 11, textDecoration: "none" } as const,
+  contentBox: {
+    margin: "8px 0 0",
+    fontSize: 11,
+    color: "#8b949e",
+    background: "#0d1117",
+    border: "1px solid #21262d",
+    borderRadius: 4,
+    padding: "10px 12px",
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    maxHeight: 240,
+    overflowY: "auto",
+    lineHeight: 1.5,
+  } as React.CSSProperties,
   modeBadge: (mode: "real" | "stub" | "fallback") =>
     ({
       background: mode === "real" ? "#1f6feb" : mode === "fallback" ? "#bf8700" : "#6e7681",

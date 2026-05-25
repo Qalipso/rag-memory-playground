@@ -17,7 +17,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { BlockType, MemoryBlock, SourceFile } from "../../src/mvp/types";
+import type { BlockType, MemoryBlock, MemoryChunk, SourceFile } from "../src/mvp/types";
 
 // react-force-graph-2d uses browser APIs; must be client-only.
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
@@ -54,6 +54,8 @@ interface GNode {
   color: string;
   val: number;
   subtitle?: string;
+  /** Original record ID for lookup (src.id or block.id or block type for hub) */
+  recordId?: string;
 }
 
 interface GLink {
@@ -88,6 +90,7 @@ function buildGraph(
       color: BLOCK_COLORS[t],
       val: 22 + count * 3,
       subtitle: `${count} block${count !== 1 ? "s" : ""}`,
+      recordId: t,
     });
   }
 
@@ -100,6 +103,7 @@ function buildGraph(
       color: sourceColor(src.type),
       val: 10 + src.chunkCount,
       subtitle: `${src.chunkCount} chunk${src.chunkCount !== 1 ? "s" : ""}`,
+      recordId: src.id,
     });
   }
 
@@ -113,6 +117,7 @@ function buildGraph(
       color: bColor,
       val: 5 + Math.round(b.confidence * 8),
       subtitle: b.summary,
+      recordId: b.id,
     });
 
     // Block → its type hub.
@@ -234,9 +239,10 @@ function Dot({ color }: { color: string }) {
 export interface PipelineGraphProps {
   sources: SourceFile[];
   blocks: MemoryBlock[];
+  chunks: MemoryChunk[];
 }
 
-export default function PipelineGraph({ sources, blocks }: PipelineGraphProps) {
+export default function PipelineGraph({ sources, blocks, chunks }: PipelineGraphProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -347,31 +353,174 @@ export default function PipelineGraph({ sources, blocks }: PipelineGraphProps) {
 
       {/* Node detail panel */}
       {selected && (
-        <div style={detailPanel}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div>
-              <span style={{ ...typeBadge, background: selected.color + "22", color: selected.color, border: `1px solid ${selected.color}44` }}>
-                {selected.nodeType}
-              </span>{" "}
-              <strong style={{ fontSize: 14 }}>{selected.label}</strong>
-            </div>
-            <button
-              style={closeBtn}
-              onClick={() => setSelected(null)}
-            >
-              ✕
-            </button>
-          </div>
-          {selected.subtitle && (
-            <p style={{ color: "#c9d1d9", fontSize: 13, marginTop: 8, lineHeight: 1.5 }}>
-              {selected.subtitle}
-            </p>
-          )}
-        </div>
+        <NodeDetail
+          node={selected}
+          sources={sources}
+          blocks={blocks}
+          chunks={chunks}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   );
 }
+
+// ─── Node Detail Panel ────────────────────────────────────────────────────────
+
+const BLOCK_COLORS_PAGE: Record<BlockType, { bg: string; fg: string }> = {
+  Feature:  { bg: "#1f6feb22", fg: "#79c0ff" },
+  Decision: { bg: "#a371f722", fg: "#d2a8ff" },
+  Risk:     { bg: "#da363322", fg: "#ff7b72" },
+  Todo:     { bg: "#bf870022", fg: "#ffd479" },
+  Concept:  { bg: "#1a7f3722", fg: "#7ee787" },
+};
+
+function blockBadgeStyle(type: BlockType): React.CSSProperties {
+  const c = BLOCK_COLORS_PAGE[type];
+  return { background: c.bg, color: c.fg, border: `1px solid ${c.fg}`, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 };
+}
+
+function NodeDetail({
+  node, sources, blocks, chunks, onClose,
+}: {
+  node: GNode;
+  sources: SourceFile[];
+  blocks: MemoryBlock[];
+  chunks: MemoryChunk[];
+  onClose: () => void;
+}) {
+  const panelContent = () => {
+    if (node.nodeType === "source" && node.recordId) {
+      const src = sources.find((s) => s.id === node.recordId);
+      if (!src) return null;
+      const srcChunks = chunks.filter((c) => c.sourceId === src.id);
+      return (
+        <>
+          <div style={D.row}>
+            <span style={D.pathMuted}>{src.path}</span>
+            <span style={{ ...D.typeBadge, background: node.color + "22", color: node.color, border: `1px solid ${node.color}44` }}>{src.type}</span>
+            <span style={D.confBadge}>{src.chunkCount} chunks</span>
+          </div>
+          {src.summary && <p style={D.summary}>{src.summary}</p>}
+          {srcChunks.length > 0 && (
+            <div style={D.section}>
+              <div style={D.sectionLabel}>CHUNKS ({srcChunks.length})</div>
+              <div style={D.chunkList}>
+                {srcChunks.map((c) => (
+                  <div key={c.id} style={D.chunkRow}>
+                    <div style={D.chunkMeta}>
+                      <code style={D.chunkId}>{c.id}</code>
+                      <span style={D.mutedSm}>{c.charCount} chars</span>
+                      {c.keywords.length > 0 && (
+                        <span style={D.mutedSm}>{c.keywords.slice(0, 4).join(", ")}</span>
+                      )}
+                    </div>
+                    <pre style={D.chunkPreview}>{c.text.slice(0, 200)}{c.text.length > 200 ? "…" : ""}</pre>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      );
+    }
+
+    if (node.nodeType === "block" && node.recordId) {
+      const blk = blocks.find((b) => b.id === node.recordId);
+      if (!blk) return null;
+      return (
+        <>
+          <div style={D.row}>
+            <span style={blockBadgeStyle(blk.type)}>{blk.type}</span>
+            <span style={D.confBadge}>conf {blk.confidence.toFixed(2)}</span>
+          </div>
+          <p style={D.summary}>{blk.summary}</p>
+          {blk.evidence.length > 0 && (
+            <div style={D.section}>
+              <div style={D.sectionLabel}>EVIDENCE</div>
+              {blk.evidence.map((e, i) => (
+                <div key={i} style={D.evidence}>"{e}"</div>
+              ))}
+            </div>
+          )}
+          <div style={D.section}>
+            <div style={D.sectionLabel}>SOURCES</div>
+            <div style={D.tagRow}>
+              {blk.sources.map((s) => <span key={s} style={D.tag}>{s}</span>)}
+            </div>
+          </div>
+          <div style={D.section}>
+            <div style={D.sectionLabel}>CHUNKS</div>
+            <div style={D.tagRow}>
+              {blk.chunkIds.map((c) => <code key={c} style={D.chunkId}>{c}</code>)}
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    if (node.nodeType === "hub" && node.recordId) {
+      const hubBlocks = blocks.filter((b) => b.type === node.recordId);
+      return (
+        <>
+          <div style={D.row}>
+            <span style={D.confBadge}>{hubBlocks.length} block{hubBlocks.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div style={D.section}>
+            <div style={D.sectionLabel}>BLOCKS IN THIS CATEGORY</div>
+            <div style={D.blockList}>
+              {hubBlocks.map((b) => (
+                <div key={b.id} style={D.blockItem}>
+                  <div style={D.blockItemHead}>
+                    <strong style={{ fontSize: 13, color: "#e6edf3" }}>{b.title}</strong>
+                    <span style={{ fontSize: 11, color: "#8b949e" }}>conf {b.confidence.toFixed(2)}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#8b949e", lineHeight: 1.4 }}>{b.summary}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <div style={detailPanel}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+        <strong style={{ fontSize: 14, color: node.color }}>{node.label}</strong>
+        <button style={closeBtn} onClick={onClose}>✕</button>
+      </div>
+      {panelContent()}
+    </div>
+  );
+}
+
+// ─── Detail styles ─────────────────────────────────────────────────────────────
+
+const D = {
+  row: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 } as React.CSSProperties,
+  pathMuted: { fontSize: 11, color: "#8b949e", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } as React.CSSProperties,
+  typeBadge: { padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, flexShrink: 0 } as React.CSSProperties,
+  confBadge: { background: "#21262d", color: "#c9d1d9", padding: "1px 8px", borderRadius: 3, fontSize: 11, flexShrink: 0 } as React.CSSProperties,
+  summary: { fontSize: 13, color: "#c9d1d9", lineHeight: 1.5, margin: "8px 0" } as React.CSSProperties,
+  section: { marginTop: 10 } as React.CSSProperties,
+  sectionLabel: { fontSize: 10, color: "#8b949e", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 6 } as React.CSSProperties,
+  chunkList: { display: "flex", flexDirection: "column", gap: 6 } as React.CSSProperties,
+  chunkRow: { background: "#0d1117", border: "1px solid #21262d", borderRadius: 4, padding: "8px 10px" } as React.CSSProperties,
+  chunkMeta: { display: "flex", gap: 8, alignItems: "center", marginBottom: 4, flexWrap: "wrap" } as React.CSSProperties,
+  chunkId: { background: "#21262d", color: "#79c0ff", padding: "1px 6px", borderRadius: 3, fontSize: 11 } as React.CSSProperties,
+  mutedSm: { fontSize: 11, color: "#8b949e" } as React.CSSProperties,
+  chunkPreview: { margin: 0, fontSize: 11, color: "#8b949e", whiteSpace: "pre-wrap", lineHeight: 1.5, fontFamily: "inherit" } as React.CSSProperties,
+  evidence: { fontSize: 12, color: "#8b949e", fontStyle: "italic", lineHeight: 1.5, borderLeft: "2px solid #30363d", paddingLeft: 8, marginBottom: 4 } as React.CSSProperties,
+  tagRow: { display: "flex", gap: 6, flexWrap: "wrap" } as React.CSSProperties,
+  tag: { background: "#21262d", color: "#c9d1d9", padding: "1px 8px", borderRadius: 3, fontSize: 11 } as React.CSSProperties,
+  blockList: { display: "flex", flexDirection: "column", gap: 8 } as React.CSSProperties,
+  blockItem: { background: "#0d1117", border: "1px solid #21262d", borderRadius: 4, padding: "8px 10px" } as React.CSSProperties,
+  blockItemHead: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4, gap: 8 } as React.CSSProperties,
+};
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

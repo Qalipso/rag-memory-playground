@@ -13,17 +13,18 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
-import { RagMemoryEngine, type FileInput } from "../../src/mvp/engine";
-import { SAMPLE_FILES } from "../../src/mvp/sample-files";
+import { RagMemoryEngine, type FileInput } from "../src/mvp/engine";
+import { SAMPLE_FILES } from "../src/mvp/sample-files";
 import type {
   AskResult,
   BlockType,
   ChunkType,
+  EvalResult,
   MemoryBlock,
   MemoryChunk,
   RetrievalTrace,
   SourceFile,
-} from "../../src/mvp/types";
+} from "../src/mvp/types";
 
 // Lazy: only bundled when Graph sub-tab is rendered.
 const PipelineGraph = dynamic(() => import("./PipelineGraph"), {
@@ -113,6 +114,23 @@ export default function PlaygroundPage() {
       setSyncing(false);
     }
   }
+
+  const clearAll = useCallback(async () => {
+    // Reset client-side engine.
+    engine.reset();
+    setSources([]);
+    setChunks([]);
+    setBlocks([]);
+    setResult(null);
+    setTrace(null);
+    setTopTab("setup");
+    // Reset server-side KnowledgeStore.
+    try {
+      await fetch("/api/rag-memory/sources", { method: "DELETE" });
+    } catch {
+      // non-fatal
+    }
+  }, [engine]);
 
   const loadSample = useCallback(() => {
     ingest(SAMPLE_FILES);
@@ -220,7 +238,6 @@ export default function PlaygroundPage() {
       <header style={S.header}>
         <div style={{ display: "flex", gap: 12, marginBottom: 8 }}>
           <Link href="/" style={S.backLink}>← Home</Link>
-          <Link href="/compare" style={S.backLink}>⇄ Compare pipelines</Link>
         </div>
         <h1 style={S.h1}>RAG Memory Playground</h1>
         <p style={S.sub}>
@@ -254,6 +271,7 @@ export default function PlaygroundPage() {
           onLoadSample={loadSample}
           onUpload={handleFiles}
           onExplore={goExplore}
+          onClear={clearAll}
         />
       )}
 
@@ -321,7 +339,7 @@ export default function PlaygroundPage() {
           {exploreTab === "trace" && <TracePanel trace={trace} />}
           {exploreTab === "graph" && (
             <section style={S.section}>
-              <PipelineGraph sources={sources} blocks={blocks} />
+              <PipelineGraph sources={sources} blocks={blocks} chunks={chunks} />
             </section>
           )}
         </div>
@@ -387,6 +405,7 @@ function SourcesPanel(props: {
   onLoadSample: () => void;
   onUpload: (files: FileList | null) => void;
   onExplore: () => void;
+  onClear: () => void;
 }) {
   return (
     <section style={S.section}>
@@ -425,6 +444,11 @@ function SourcesPanel(props: {
         {props.hasData && (
           <button style={S.exploreButton} onClick={props.onExplore}>
             Explore results →
+          </button>
+        )}
+        {props.hasData && (
+          <button style={S.clearButton} onClick={props.onClear}>
+            Clear all
           </button>
         )}
         <span style={S.muted}>
@@ -730,6 +754,12 @@ function AskPanel(props: {
               </div>
             </div>
           )}
+
+          {props.result.eval && (
+            <div style={S.sourcesBox}>
+              <EvalScorecard ev={props.result.eval} />
+            </div>
+          )}
         </div>
       )}
     </section>
@@ -837,6 +867,44 @@ function TracePanel(props: { trace: RetrievalTrace | null }) {
         </div>
       )}
     </section>
+  );
+}
+
+// ---------- Eval Scorecard ----------
+
+const EVAL_METRICS: Array<{ key: keyof EvalResult; label: string; tip: string }> = [
+  { key: "faithfulness",      label: "Faithfulness",       tip: "Answer grounded in retrieved context" },
+  { key: "answerRelevancy",   label: "Answer Relevancy",   tip: "Answer addresses the question" },
+  { key: "contextPrecision",  label: "Context Precision",  tip: "Retrieved chunks are on-topic" },
+  { key: "contextRecall",     label: "Context Recall",     tip: "Context covers question's info need" },
+];
+
+function EvalScorecard({ ev }: { ev: EvalResult }) {
+  return (
+    <div style={S.evalCard}>
+      <div style={S.evalHead}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "#8b949e", letterSpacing: "0.04em" }}>
+          RAGAS EVAL
+        </span>
+        <span style={S.evalOverall(ev.overall)}>
+          overall {ev.overall.toFixed(2)}
+        </span>
+      </div>
+      <div style={S.evalGrid}>
+        {EVAL_METRICS.map((m) => {
+          const val = ev[m.key] as number;
+          return (
+            <div key={m.key} style={S.evalRow}>
+              <div style={S.evalLabel} title={m.tip}>{m.label}</div>
+              <div style={S.evalBarTrack}>
+                <div style={S.evalBar(val)} />
+              </div>
+              <div style={S.evalScore(val)}>{val.toFixed(2)}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -1022,6 +1090,16 @@ const S = {
     fontSize: 13,
     fontFamily: "inherit",
     fontWeight: 600,
+  } as const,
+  clearButton: {
+    background: "transparent",
+    color: "#ff7b72",
+    border: "1px solid #ff7b7244",
+    padding: "8px 16px",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "inherit",
   } as const,
   uploadLabel: {
     background: "#21262d",
@@ -1312,4 +1390,68 @@ const S = {
   mono: { fontFamily: "inherit", fontSize: 12, color: "#c9d1d9" } as const,
   muted: { color: "#8b949e", fontSize: 12 } as const,
   snippet: { color: "#c9d1d9", fontSize: 12, marginTop: 6, lineHeight: 1.5 } as const,
+
+  // Eval scorecard
+  evalCard: {
+    background: "#0d1117",
+    border: "1px solid #21262d",
+    borderRadius: 6,
+    padding: 12,
+  } as const,
+  evalHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  } as const,
+  evalOverall: (v: number) =>
+    ({
+      background: v >= 0.7 ? "#1a7f37" : v >= 0.4 ? "#bf8700" : "#6e3630",
+      color: "white",
+      padding: "2px 10px",
+      borderRadius: 3,
+      fontSize: 12,
+      fontWeight: 700,
+    }) as React.CSSProperties,
+  evalGrid: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  } as const,
+  evalRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+  } as const,
+  evalLabel: {
+    width: 140,
+    fontSize: 11,
+    color: "#8b949e",
+    flexShrink: 0,
+    cursor: "help",
+  } as const,
+  evalBarTrack: {
+    flex: 1,
+    height: 6,
+    background: "#21262d",
+    borderRadius: 3,
+    overflow: "hidden",
+  } as const,
+  evalBar: (v: number) =>
+    ({
+      width: `${Math.round(v * 100)}%`,
+      height: "100%",
+      background: v >= 0.7 ? "#238636" : v >= 0.4 ? "#d29922" : "#da3633",
+      borderRadius: 3,
+      transition: "width 0.3s ease",
+    }) as React.CSSProperties,
+  evalScore: (v: number) =>
+    ({
+      width: 34,
+      fontSize: 11,
+      fontWeight: 700,
+      textAlign: "right",
+      color: v >= 0.7 ? "#7ee787" : v >= 0.4 ? "#ffd479" : "#ff7b72",
+      flexShrink: 0,
+    }) as React.CSSProperties,
 };
