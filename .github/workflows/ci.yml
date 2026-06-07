@@ -18,7 +18,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
 
       - name: Unit tests
         run: npm test
@@ -29,4 +29,25 @@ jobs:
           # CI builds in local-demo mode: all providers run as deterministic
           # stubs, no secrets required. Real providers promote at runtime when
           # their keys are present in the deployment environment.
+          FRAMEWORK_MODE: local
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run test:e2e
+        env:
           FRAMEWORK_MODE: local

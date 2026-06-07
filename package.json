@@ -10,6 +10,7 @@
     "start": "next start",
     "build:tsc": "tsc -p tsconfig.json",
     "test": "tsx --test $(find src -name '*.test.ts')",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22.5.0",
     "@types/pg": "8.11.0",
     "@types/react": "^18.3.29",
