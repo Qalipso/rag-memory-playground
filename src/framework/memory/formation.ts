@@ -283,39 +283,88 @@ function dedupeEdges(edges: MemoryEdge[]): MemoryEdge[] {
   return out;
 }
 
-function entityId(name: string): string {
-  return "ent_" + name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_|_$/g, "");
+/**
+ * Entity aliases collapse synonymous / cross-language surface forms onto one
+ * canonical id, so "expense tracker" and "трекер расходов" link to the same
+ * node. Extend as the corpus grows; deterministic, no model call.
+ */
+const ENTITY_ALIASES: Record<string, string> = {
+  "трекер расходов": "expense tracker",
+  "трекер": "expense tracker",
+  "expense tracker": "expense tracker",
+  "трекинг расходов": "expense tracker",
+  "кофе": "coffee",
+  "coffee": "coffee",
+};
+
+function canonicalEntityName(name: string): string {
+  return ENTITY_ALIASES[name.trim().toLowerCase()] ?? name.trim();
+}
+
+export function entityId(name: string): string {
+  return (
+    "ent_" +
+    canonicalEntityName(name)
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "_")
+      .replace(/^_|_$/g, "")
+  );
 }
 
 // ---------- Consolidation ----------
 
 export interface ConsolidationResult {
+  /** Same-level near-duplicates collapsed. */
   merged: number;
+  /** Working blocks invalidated (decay + cross-level supersede). */
   invalidated: number;
+  /** Working blocks absorbed by a newer procedural/semantic block. */
+  supersededAcrossLevel: number;
+  /** Working blocks invalidated by TTL decay. */
+  decayed: number;
   supersedesEdges: MemoryEdge[];
   steps: FormationStep[];
 }
 
+export interface ConsolidationOptions {
+  store?: MemoryStore;
+  /** Reference time for decay (defaults to Date.now()). */
+  now?: number;
+  /** Working blocks older than this are decayed. Default 7 days. */
+  workingTtlDays?: number;
+}
+
 const MERGE_SIMILARITY = 0.95;
+const CROSS_LEVEL_SIMILARITY = 0.5; // lexical/cosine overlap to absorb a task
+const DEFAULT_WORKING_TTL_DAYS = 7;
 
 /**
- * Consolidate memory over time: merge near-duplicate blocks of the same level,
- * marking the older block 'merged' and adding a 'supersedes' edge. Working-level
- * blocks superseded by a newer procedural/semantic block are invalidated.
+ * Consolidate memory over time:
+ *  1. merge — collapse near-duplicate blocks of the same level.
+ *  2. supersede across level — a newer procedural/semantic block sharing an
+ *     entity with an older working task absorbs (invalidates) that task.
+ *  3. decay — working blocks older than the TTL are invalidated.
+ * Merged/invalidated blocks are retained in the snapshot as an audit trail.
  */
 export async function consolidateMemory(
   userId: string,
-  deps: { store?: MemoryStore } = {}
+  opts: ConsolidationOptions = {}
 ): Promise<ConsolidationResult> {
-  const store = deps.store ?? getMemoryStore();
+  const store = opts.store ?? getMemoryStore();
+  const now = opts.now ?? Date.now();
+  const ttlMs = (opts.workingTtlDays ?? DEFAULT_WORKING_TTL_DAYS) * 86_400_000;
+
   const blocks = (await store.activeBlocks(userId)).sort((a, b) =>
     a.createdAt < b.createdAt ? -1 : 1
   );
 
   const supersedesEdges: MemoryEdge[] = [];
   let merged = 0;
+  let supersededAcrossLevel = 0;
+  let decayed = 0;
   const start = Date.now();
 
+  // 1. same-level dedupe
   for (let i = 0; i < blocks.length; i++) {
     for (let j = i + 1; j < blocks.length; j++) {
       const a = blocks[i]!;
@@ -327,7 +376,6 @@ export async function consolidateMemory(
       } else if (cosine(a.embedding, b.embedding) < MERGE_SIMILARITY) {
         continue;
       }
-      // b (newer) supersedes a (older)
       await store.setBlockStatus(a.id, "merged");
       a.status = "merged";
       supersedesEdges.push(makeEdge(b.id, a.id, "supersedes", 1, "consolidated duplicate"));
@@ -335,8 +383,41 @@ export async function consolidateMemory(
     }
   }
 
+  // 2. cross-level supersede: newer procedural/semantic absorbs older working task
+  const working = blocks.filter((b) => b.status === "active" && b.level === "working");
+  const knowledge = blocks.filter(
+    (b) => b.status === "active" && (b.level === "procedural" || b.level === "semantic")
+  );
+  for (const w of working) {
+    for (const k of knowledge) {
+      if (k.sourceNoteId === w.sourceNoteId) continue; // not same note
+      if (k.createdAt < w.createdAt) continue; // must be newer-or-equal
+      const sharesEntity = w.entityIds.some((id) => k.entityIds.includes(id));
+      if (!sharesEntity) continue;
+      if (relatedness(w, k) < CROSS_LEVEL_SIMILARITY) continue;
+      await store.setBlockStatus(w.id, "invalidated");
+      w.status = "invalidated";
+      supersedesEdges.push(
+        makeEdge(k.id, w.id, "supersedes", 1, "task absorbed by newer knowledge")
+      );
+      supersededAcrossLevel++;
+      break;
+    }
+  }
+
+  // 3. decay stale working tasks
+  for (const w of working) {
+    if (w.status !== "active") continue;
+    if (now - Date.parse(w.createdAt) > ttlMs) {
+      await store.setBlockStatus(w.id, "invalidated");
+      w.status = "invalidated";
+      decayed++;
+    }
+  }
+
   await store.addEdges(supersedesEdges);
 
+  const invalidated = supersededAcrossLevel + decayed;
   const steps: FormationStep[] = [
     {
       name: "consolidateNode",
@@ -344,12 +425,23 @@ export async function consolidateMemory(
       providerMode: "real",
       status: "ok",
       inputSummary: `${blocks.length} active blocks`,
-      outputSummary: `${merged} merged`,
+      outputSummary: `${merged} merged, ${supersededAcrossLevel} absorbed, ${decayed} decayed`,
       durationMs: Date.now() - start,
     },
   ];
 
-  return { merged, invalidated: 0, supersedesEdges, steps };
+  return { merged, invalidated, supersededAcrossLevel, decayed, supersedesEdges, steps };
+}
+
+/** Cosine when both embedded, else lexical token overlap (Jaccard-ish). */
+function relatedness(a: MemoryBlock, b: MemoryBlock): number {
+  if (a.embedding.length && b.embedding.length) return cosine(a.embedding, b.embedding);
+  const ta = new Set(a.content.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
+  const tb = new Set(b.content.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let inter = 0;
+  for (const t of ta) if (tb.has(t)) inter++;
+  return inter / Math.min(ta.size, tb.size);
 }
 
 // ---------- helpers ----------

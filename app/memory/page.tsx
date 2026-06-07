@@ -138,8 +138,14 @@ export default function MemoryLabPage() {
       body: JSON.stringify({ userId }),
     });
     if (res.ok) {
-      const data = (await res.json()) as { merged: number };
-      setConsolidateMsg(`Consolidated: ${data.merged} block(s) merged.`);
+      const data = (await res.json()) as {
+        merged: number;
+        supersededAcrossLevel: number;
+        decayed: number;
+      };
+      setConsolidateMsg(
+        `Consolidated: ${data.merged} merged, ${data.supersededAcrossLevel} absorbed, ${data.decayed} decayed.`
+      );
       await loadGraph();
     }
   }

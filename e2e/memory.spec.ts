@@ -39,6 +39,6 @@ test.describe("/memory — Visual Memory Lab", () => {
     await expect(page.getByText(/Memory blocks \(\d+\)/)).toBeVisible();
 
     await page.getByRole("button", { name: "Consolidate" }).click();
-    await expect(page.getByText(/Consolidated: \d+ block/)).toBeVisible();
+    await expect(page.getByText(/Consolidated: \d+ merged/)).toBeVisible();
   });
 });

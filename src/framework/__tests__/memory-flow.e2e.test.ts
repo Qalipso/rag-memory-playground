@@ -119,7 +119,11 @@ test("full memory flow: ingest → graph → link → consolidate", async (t) =>
     const after = (await store.activeBlocks(userId)).length;
 
     assert.ok(res.merged > 0, "duplicates merged");
-    assert.equal(after, before - res.merged, "active count drops by merged");
+    assert.equal(
+      after,
+      before - res.merged - res.invalidated,
+      "active count drops by merged + invalidated"
+    );
     assert.ok(
       res.supersedesEdges.every((e) => e.kind === "supersedes"),
       "supersedes edges recorded"
