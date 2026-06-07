@@ -26,3 +26,9 @@ export {
   resetSharedFrameworkContainer,
   type FrameworkContainer,
 } from "./container.js";
+
+// ---------- Memory-formation pipeline ----------
+export * from "./memory/types.js";
+export { formMemory, consolidateMemory } from "./memory/formation.js";
+export { getMemoryStore, resetMemoryStore } from "./memory/store.js";
+export type { MemoryStore, MemoryGraphSnapshot } from "./memory/store.js";

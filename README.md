@@ -1,6 +1,13 @@
 # RAG Memory Playground
 
-> **Current state (Phase 0):** In-browser UI mock + keyword retrieval engine. LangGraph, LlamaIndex, Mem0, and Langfuse are roadmapped integrations — not yet implemented. The packages listed in package.json are reserved slots. Real embedding mode ships in Sprint 4.
+> **Current state:** Framework-first engine is real and wired. LangGraph orchestration is always real; LlamaIndex.TS retrieval, OpenAI generation, Mem0 memory, and Langfuse observability promote to real per-provider when their env keys are present, else fall back to deterministic stubs (surfaced honestly in `providerStatus` + `failureModes`). Evaluation is a Ragas-shaped deterministic stub (real Ragas = Python sidecar, roadmapped).
+>
+> Surfaces shipping today:
+> - **Visual Memory Lab** (`/memory`) — raw note → multi-level long-term memory: normalize → classify → extract entities → split blocks → embed → store → link graph → consolidate. Full per-stage trace + memory graph.
+> - **Side-by-side comparison** (`/compare`) — same query through 2–4 pipeline configs; diff quality × cost × latency, winners per axis.
+> - **Framework debug** (`/playground`) — raw `ExplainableRun` JSON for any query.
+>
+> Persistence is env-gated: in-memory by default; Postgres + pgvector when `DATABASE_URL` is set (schema: `supabase/migrations/0001_memory.sql`).
 
 > A sandbox where teams can prototype, evaluate, and compare retrieval-augmented generation pipelines side-by-side. Configure chunker, embedder, retriever, reranker, and generator — run identical queries — measure faithfulness, answer relevance, context precision/recall, latency, and cost.
 
@@ -130,20 +137,39 @@ Local mode uses deterministic stubs for every provider. No API keys required.
 # install
 npm install
 
-# run the framework engine demo (LangGraph + local stubs)
-npm run rag:demo
+# dev server (http://localhost:3000) → / lists all surfaces
+npm run dev
 
-# run the legacy Phase 1 simulator
-npm run demo
+# framework engine demo (LangGraph + local stubs, no keys needed)
+npx tsx scripts/demo-framework.ts
+
+# legacy Phase 1 simulator
+npx tsx scripts/demo.ts
+
+# tests (runs every *.test.ts under src/)
+npm test
 
 # typecheck
 npm run typecheck
-
-# tests
-npm test
 ```
 
 The demo prints route decision, provider status, graph steps, retrieved docs/memories, evaluation scores, failure modes, and timing.
+
+### Enable real providers / persistence
+
+Copy `.env.example` → `.env.local`:
+
+```
+FRAMEWORK_MODE=real
+OPENAI_API_KEY=sk-...        # promotes LlamaIndex retrieval + OpenAI generation + memory extraction
+MEM0_API_KEY=...             # promotes memory provider to Mem0 cloud
+LANGFUSE_PUBLIC_KEY=...      # promotes observability to Langfuse
+LANGFUSE_SECRET_KEY=...
+DATABASE_URL=postgres://...  # switches memory store from in-memory to Postgres + pgvector
+ALLOW_RUNTIME_CONFIG=1       # local dev only: lets the Settings UI write keys to .env.local
+```
+
+Apply the DB schema once: `psql "$DATABASE_URL" -f supabase/migrations/0001_memory.sql` (the store also ensures it idempotently on first use).
 
 ## How to enable real providers
 
@@ -171,8 +197,9 @@ Promotion is **per provider**. Missing keys cause that one provider to remain a 
 | Layer | Why it is still a stub | Plan |
 |-------|------------------------|------|
 | Evaluation | Real Ragas is Python; needs a sidecar | Phase 5: spawn Ragas via subprocess or HTTP bridge |
-| Persistent run/trace storage | Engine emits trace, no DB writer yet | Phase 6: Postgres + pgvector adapters |
-| Auto memory write-back | Engine returns candidates, does not save | Phase 4: wire to `MemoryProvider.add()` |
+| Run/trace storage | Engine emits trace; only memory blocks/edges persist | Persist `ExplainableRun` to Postgres next |
+
+Done since the original spec: **memory persistence** — formed memory blocks, entities, and graph edges write to Postgres + pgvector when `DATABASE_URL` is set (`PgMemoryStore`), else in-memory. **Auto memory write-back** — the Visual Memory Lab forms and stores multi-level memory from a note via `POST /api/rag-memory/memory/form`.
 
 The honesty contract: any provider in stub or fallback mode is reported in `providerStatus` and added to `failureModes` (with severity `info` for evaluation and observability stubs, `warn` for retrieval/memory fallbacks).
 

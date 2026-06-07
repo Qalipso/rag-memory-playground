@@ -1,5 +1,26 @@
 # Roadmap — RAG Memory Playground
 
+## Build status (2026-06)
+
+Shipped + verified (30 tests, `next build` clean):
+- [x] Framework-first engine wired — LangGraph orchestration (real) + LlamaIndex.TS / OpenAI / Mem0 / Langfuse providers (real per-key, else honest stub/fallback).
+- [x] `POST /api/rag-memory/framework-run` → real `ExplainableRun`.
+- [x] Side-by-side comparison — `/compare` + `/api/rag-memory/compare` (quality × cost × latency, winners per axis).
+- [x] Memory-formation pipeline — normalize → classify → extract entities → split blocks → embed → store → link graph → consolidate.
+- [x] Visual Memory Lab — `/memory` + `form`/`graph`/`consolidate` routes.
+- [x] Persistence env-gated — in-memory default; Postgres + pgvector when `DATABASE_URL` set (`supabase/migrations/0001_memory.sql`).
+- [x] CI — `.github/workflows/ci.yml` (install → test → build); `npm test` runs all `*.test.ts`.
+
+Next stages:
+- **N1** Verify Postgres path against live Supabase (`DATABASE_URL`).
+- **N2** Wire formed memory into retrieval — `MemoryProvider.search()` reads formation store so `/playground` answers ground on real user memory. *(in progress)*
+- **N3** Playwright HTTP-level E2E for `/memory` UI.
+- **N4** Consolidation depth — decay, supersede, entity-alias merge.
+- **N5** Persist `ExplainableRun` (`engine_runs` + `trace_events`) → run history, permalinks.
+- **N6** Real eval — route `evaluateAnswerNode` through the OpenAI judge (`/api/faithfulness`).
+
+---
+
 ## Phase 0 — Foundations (this repo)
 **Outcome:** Product is legible on paper.
 
