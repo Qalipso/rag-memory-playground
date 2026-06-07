@@ -4,7 +4,7 @@
  * Drives the LangGraph workflow and returns an ExplainableRun.
  */
 
-import { getSharedFrameworkContainer } from "../../../../src/framework";
+import { getSharedFrameworkContainer, getRunStore } from "../../../../src/framework";
 import type { EngineMode, FrameworkInput } from "../../../../src/framework";
 
 export const runtime = "nodejs";
@@ -66,6 +66,17 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const { engine } = getSharedFrameworkContainer();
     const result = await engine.run(input);
+    // Persist for history + permalink. Never fail the response on a save error.
+    try {
+      await getRunStore().save({
+        id: result.runId,
+        userId: input.userId,
+        createdAt: result.meta.finishedAt,
+        run: result,
+      });
+    } catch (saveErr) {
+      console.warn("[framework-run] run persist failed:", saveErr);
+    }
     return jsonResponse(result, 200);
   } catch (error) {
     console.error("[framework-run] engine.run failed:", error);

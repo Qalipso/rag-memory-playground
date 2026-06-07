@@ -33,3 +33,7 @@ export * from "./memory/types.js";
 export { formMemory, consolidateMemory } from "./memory/formation.js";
 export { getMemoryStore, resetMemoryStore } from "./memory/store.js";
 export type { MemoryStore, MemoryGraphSnapshot } from "./memory/store.js";
+
+// ---------- Run history ----------
+export { getRunStore, resetRunStore, toSummary } from "./runs/store.js";
+export type { RunStore, RunRecord, RunSummary } from "./runs/store.js";
