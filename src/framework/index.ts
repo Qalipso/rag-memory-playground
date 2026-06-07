@@ -10,6 +10,7 @@ export type { ObservabilityProvider } from "./ports/observability-provider.port.
 
 export { LocalRagProvider } from "./adapters/local-rag-provider.js";
 export { LocalMemoryProvider } from "./adapters/local-memory-provider.js";
+export { FormationMemoryProvider } from "./adapters/formation-memory-provider.js";
 export { LocalLLMProvider } from "./adapters/local-llm-provider.js";
 export { DeterministicEvaluator } from "./adapters/deterministic-evaluator.js";
 export { LocalObservabilityProvider } from "./adapters/local-observability-provider.js";

@@ -2,7 +2,7 @@ import { DeterministicEvaluator } from "./adapters/deterministic-evaluator.js";
 import { LangfuseObservabilityProvider } from "./adapters/langfuse-observability-provider.js";
 import { LlamaIndexRagProvider } from "./adapters/llamaindex-rag-provider.js";
 import { LocalLLMProvider } from "./adapters/local-llm-provider.js";
-import { LocalMemoryProvider } from "./adapters/local-memory-provider.js";
+import { FormationMemoryProvider } from "./adapters/formation-memory-provider.js";
 import { LocalObservabilityProvider } from "./adapters/local-observability-provider.js";
 import { LocalRagProvider } from "./adapters/local-rag-provider.js";
 import { Mem0MemoryProvider } from "./adapters/mem0-memory-provider.js";
@@ -82,7 +82,7 @@ export function buildFrameworkContainer(
     wantsReal,
     envSet: Boolean(process.env["MEM0_API_KEY"]),
     realFactory: () => new Mem0MemoryProvider(),
-    stub: new LocalMemoryProvider(),
+    stub: new FormationMemoryProvider(),
   });
 
   const llm = pickProvider<LLMProvider>({
