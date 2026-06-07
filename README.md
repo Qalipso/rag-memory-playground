@@ -1,250 +1,353 @@
 # RAG Memory Playground
 
-> **Current state:** Framework-first engine is real and wired. LangGraph orchestration is always real; LlamaIndex.TS retrieval, OpenAI generation, Mem0 memory, and Langfuse observability promote to real per-provider when their env keys are present, else fall back to deterministic stubs (surfaced honestly in `providerStatus` + `failureModes`). Evaluation is a Ragas-shaped deterministic stub (real Ragas = Python sidecar, roadmapped).
->
-> Surfaces shipping today:
-> - **Visual Memory Lab** (`/memory`) — raw note → multi-level long-term memory: normalize → classify → extract entities → split blocks → embed → store → link graph → consolidate. Full per-stage trace + memory graph.
-> - **Side-by-side comparison** (`/compare`) — same query through 2–4 pipeline configs; diff quality × cost × latency, winners per axis.
-> - **Framework debug** (`/playground`) — raw `ExplainableRun` JSON for any query.
->
-> Persistence is env-gated: in-memory by default; Postgres + pgvector when `DATABASE_URL` is set (schema: `supabase/migrations/0001_memory.sql`).
+**A framework-first lab for building, comparing, and debugging RAG + long-term memory pipelines.**
 
-> A sandbox where teams can prototype, evaluate, and compare retrieval-augmented generation pipelines side-by-side. Configure chunker, embedder, retriever, reranker, and generator — run identical queries — measure faithfulness, answer relevance, context precision/recall, latency, and cost.
+RAG Memory Playground is an experimentation engine for AI builders who need to understand *why* a retrieval or memory pipeline works, fails, gets expensive, or silently falls back to a mock provider.
 
----
+It combines:
 
-## Project Overview
+- **LangGraph orchestration** for explainable multi-step runs
+- **RAG retrieval** through LlamaIndex.TS or deterministic local fallback
+- **Memory retrieval / formation** through Mem0 or local memory providers
+- **OpenAI generation** or deterministic local generation
+- **Ragas-shaped evaluation** with an upgrade path to real judge-based evals
+- **Langfuse observability** or local traces
+- **Postgres + pgvector persistence** when `DATABASE_URL` is configured
 
-RAG Memory Playground is a hosted experimentation environment for teams building retrieval-augmented LLM features. It treats a RAG pipeline as a tunable graph of stages — chunker → embedder → retriever → reranker → generator — and lets users run the same query across multiple pipeline configurations to see real, measurable differences in quality, cost, and latency.
-
-The product fills the space between "I have a notebook with langchain code that works on my laptop" and "we have production RAG and I cannot tell why retrieval quality dropped last Tuesday." It is the experimentation and decision layer that lets a small team make defensible RAG decisions without spending three weeks rebuilding plumbing.
-
-## Problem
-
-RAG is the most common pattern in production AI applications and the hardest to debug.
-
-Three problems recur in every team building RAG:
-
-1. **The search space is enormous.** Chunk size, chunk overlap, embedding model, retrieval k, reranker model, context window strategy, prompt template — each has 3–10 reasonable values. The combinatorial space is unmanageable without tooling.
-2. **The eval signal is weak.** Most teams eyeball outputs. They cannot tell whether a change improved faithfulness or just made answers longer. They have no ground-truth set.
-3. **The cost picture is invisible.** A "better" pipeline that triples cost per query is not a win. Teams routinely ship configurations they would have rejected if they had seen the cost numbers.
-
-Existing tools fall short:
-- LangChain / LlamaIndex give you the *components* but no experimentation harness.
-- Notebooks are write-only; results don't persist or compare.
-- Eval frameworks (Ragas, TruLens) score one pipeline; they don't make comparison the first-class experience.
-
-## Target Users
-
-- **Applied AI engineers** building RAG features and needing to make defensible pipeline choices
-- **AI Product Managers** who need to understand the trade-off curves (quality × cost × latency) before signing off on production
-- **Founders prototyping** AI features without time to build internal eval tooling
-- **Eval / quality engineers** who need to write ground-truth sets and grade outputs
-
-## Core Features
-
-| Feature | Description |
-|---------|-------------|
-| Pipeline Builder | Visual, declarative pipeline: pick a chunker, embedder, retriever, reranker, generator; save as a named "config" |
-| Side-by-side Runner | Run the same query across 2–4 pipeline configs in parallel; see outputs in columns |
-| Ground-Truth Sets | Upload a set of (question, ideal_answer, source_doc_ids) tuples; runs are scored against them |
-| RAG Eval Suite | Faithfulness, answer relevance, context precision, context recall — built-in, plus LLM-as-judge |
-| Cost & Latency Tracker | Every run shows total cost, per-stage cost, p95 latency |
-| Config Diff | Diff two saved configs visually; one-click "promote winning config" |
-| Export as Code | Generate a LangChain or LlamaIndex template that reproduces the winning config |
-| Trace View | Per-query trace: chunks retrieved, reranker scores, final context, generator prompt, output |
-
-## Technical / Product Scope
-
-**Stack (intended):**
-- Next.js (UI) + Python FastAPI (pipeline runner)
-- Postgres + pgvector for embeddings & runs
-- Object store for documents
-- Modal or Replicate for embedding/reranker model inference
-- LiteLLM as the model gateway abstraction
-
-**Product scope decisions:**
-- Pipelines are **declarative JSON**, not arbitrary code. This is what makes config diff and export-as-code possible.
-- Ground-truth sets are **first-class objects** with versioning, just like in the Eval Wiki.
-- Comparison is **the primary UI surface**, not a buried feature.
-- The product is opinionated about which metrics matter and which are noise.
-
-## Portfolio Value
-
-This project demonstrates fluency in the hardest part of building AI products — making defensible decisions in the face of high-dimensional design space and weak feedback signals.
-
-- **Applied AI depth** — accurate understanding of where RAG pipelines actually fail (recall, faithfulness, over-stuffed contexts)
-- **PM thinking** — the comparison-first UI is a product decision, not an engineering one
-- **Cost-awareness** — exposing cost and latency alongside quality avoids the classic "win the demo, lose the launch" pattern
-- **Reproducibility** — declarative configs + export-as-code mean the user's winning config is not trapped in the tool
-
-## What This Project Proves
-
-- I can design a tool around how AI engineers actually do iterative work — small, frequent, comparative experiments.
-- I understand RAG well enough to pick the right metrics (faithfulness, context recall) and reject the wrong ones (vague "quality scores").
-- I can scope an opinionated product instead of a flexibility-first one — declarative pipelines, not code-first.
-- I understand the operational reality that most RAG decisions are cost-quality trade-offs, not pure quality wins.
-
-## Future Roadmap
-
-| Phase | Outcome |
-|-------|---------|
-| 0 | Schema, pipeline JSON spec, UI mock (current state in this repo) |
-| 1 | Single-user MVP: build pipeline, run query, see output + cost |
-| 2 | Side-by-side comparison; ground-truth sets; built-in eval metrics |
-| 3 | LLM-as-judge scoring; trace view; export-as-code (LangChain template) |
-| 4 | Auto-search: sweep over hyperparameters and surface Pareto front (quality vs cost) |
-| 5 | Failure-mode tagging on individual queries; failure clusters across configs |
-| 6 | Production-trace ingestion (replay prod queries through new configs offline) |
-
-## Repository Layout
-
-```
-rag-memory-playground/
-├── README.md
-├── product-brief.md
-├── architecture.md
-├── roadmap.md
-├── acceptance-criteria.md
-├── .env.example
-├── src/framework/                    # framework-first engine
-│   ├── types.ts                      # ExplainableRun, GraphStep, ProviderStatus
-│   ├── engine.ts                     # FrameworkEngine
-│   ├── container.ts                  # env-driven DI with fallback tracking
-│   ├── ports/                        # provider port interfaces
-│   ├── adapters/                     # local stubs + real adapters
-│   ├── workflow/                     # LangGraph state + 7 nodes + graph
-│   ├── data/seed.ts                  # demo docs + memories
-│   └── __tests__/                    # contract tests
-├── src/core/                         # legacy Phase 1 simulator (still works)
-├── scripts/
-│   ├── demo.ts                       # legacy simulator demo
-│   └── demo-framework.ts             # framework engine demo
-├── app/
-│   ├── api/rag-memory/run/route.ts                # legacy POST
-│   ├── api/rag-memory/framework-run/route.ts      # framework-first POST
-│   └── rag-memory-playground/page.tsx             # debug page
-├── docs/, mock-data/, ui/, screens/, diagrams/
-```
+> Not just “ask your docs”.  
+> This is a playground for understanding retrieval, memory, cost, latency, fallback behavior, and failure modes.
 
 ---
 
-## How to run in local demo mode
+## Current Status
 
-Local mode uses deterministic stubs for every provider. No API keys required.
+`MVP` · `framework-first` · `local-demo friendly` · `real providers when configured`
 
-```bash
-# install
-npm install
+| Area | Status |
+|---|---:|
+| LangGraph workflow orchestration | ✅ Real |
+| ExplainableRun output contract | ✅ Real |
+| Provider status disclosure | ✅ Real |
+| Local deterministic demo mode | ✅ Real |
+| LlamaIndex.TS retrieval provider | ✅ Env-gated |
+| OpenAI generation provider | ✅ Env-gated |
+| Mem0 memory provider | ✅ Env-gated |
+| Langfuse observability provider | ✅ Env-gated |
+| Memory formation pipeline | ✅ Real |
+| Visual Memory Lab | ✅ Real |
+| Side-by-side comparison | ✅ Real |
+| Postgres + pgvector persistence | ✅ Env-gated |
+| Ragas-style deterministic eval | ✅ Stub / heuristic |
+| Real Ragas sidecar | ⏳ Planned |
+| Persisted run history / permalinks | ⏳ Planned |
 
-# dev server (http://localhost:3000) → / lists all surfaces
-npm run dev
+The project is honest about runtime mode. If a provider is running as a stub or fallback, the response exposes it through `providerStatus`, `failureModes`, and debug metadata.
 
-# framework engine demo (LangGraph + local stubs, no keys needed)
-npx tsx scripts/demo-framework.ts
+---
 
-# legacy Phase 1 simulator
-npx tsx scripts/demo.ts
+## Why This Exists
 
-# tests (runs every *.test.ts under src/)
-npm test
+RAG and agent memory systems usually fail in ways that are hard to see:
 
-# typecheck
-npm run typecheck
+- retrieval returns plausible but wrong chunks
+- memory recalls stale or irrelevant facts
+- long context works but costs too much
+- a reranker improves quality but adds latency
+- a production provider silently falls back to a local stub
+- evaluation numbers look real but are actually placeholders
+- nobody can explain why one pipeline beat another
+
+This project treats the AI pipeline as an inspectable graph instead of a black box.
+
+The goal is simple:
+
+> Make RAG and memory decisions defensible, measurable, and debuggable.
+
+---
+
+## Product Surfaces
+
+| Route | Purpose |
+|---|---|
+| `/` | Entry screen listing available playground surfaces |
+| `/memory` | Visual Memory Lab: raw note → structured long-term memory |
+| `/compare` | Side-by-side RAG / memory pipeline comparison |
+| `/playground` | Raw framework debug surface with full `ExplainableRun` JSON |
+| `/rag-memory-playground` | Legacy / framework debug page |
+| `/api/rag-memory/framework-run` | Main framework-first run endpoint |
+| `/api/rag-memory/compare` | Side-by-side comparison endpoint |
+| `/api/rag-memory/memory/form` | Memory formation endpoint |
+| `/api/rag-memory/memory/graph` | Memory graph endpoint |
+| `/api/rag-memory/memory/consolidate` | Memory consolidation endpoint |
+
+---
+
+## Product Formula
+
+```txt
+User message
+  → classify intent
+  → choose route: RAG / memory / long-context / hybrid
+  → retrieve documents
+  → retrieve memories
+  → build final context
+  → generate answer
+  → evaluate answer
+  → expose trace + provider status + failure modes
 ```
 
-The demo prints route decision, provider status, graph steps, retrieved docs/memories, evaluation scores, failure modes, and timing.
+The important part is not just the answer.  
+The important part is the explanation of how the answer was produced.
 
-### Enable real providers / persistence
+---
 
-Copy `.env.example` → `.env.local`:
+## Core Concepts
 
-```
-FRAMEWORK_MODE=real
-OPENAI_API_KEY=sk-...        # promotes LlamaIndex retrieval + OpenAI generation + memory extraction
-MEM0_API_KEY=...             # promotes memory provider to Mem0 cloud
-LANGFUSE_PUBLIC_KEY=...      # promotes observability to Langfuse
-LANGFUSE_SECRET_KEY=...
-DATABASE_URL=postgres://...  # switches memory store from in-memory to Postgres + pgvector
-ALLOW_RUNTIME_CONFIG=1       # local dev only: lets the Settings UI write keys to .env.local
-```
+### 1. ExplainableRun
 
-Apply the DB schema once: `psql "$DATABASE_URL" -f supabase/migrations/0001_memory.sql` (the store also ensures it idempotently on first use).
+Every framework run returns a single structured object:
 
-## How to enable real providers
-
-Copy `.env.example` to `.env.local` (or export the vars in your shell) and set:
-
-- `FRAMEWORK_MODE=real`
-- `OPENAI_API_KEY=...` — promotes LlamaIndex.TS retrieval and OpenAI chat completions to real mode.
-- `MEM0_API_KEY=...` — promotes memory provider to Mem0 cloud.
-- `LANGFUSE_PUBLIC_KEY=...` and `LANGFUSE_SECRET_KEY=...` — promotes observability to Langfuse.
-
-Promotion is **per provider**. Missing keys cause that one provider to remain a stub and surface as `provider_fallback_used` in the failure modes. Other providers stay real if their keys are present.
-
-## Which parts are real
-
-| Layer | Real provider | Stub fallback |
-|-------|---------------|---------------|
-| Orchestration | `@langchain/langgraph` StateGraph (always real) | — |
-| Retrieval | `llamaindex` 0.8 VectorStoreIndex | `LocalRagProvider` (lexical) |
-| Memory | `mem0ai` 2.x cloud | `LocalMemoryProvider` (lexical, in-memory) |
-| LLM | `openai` 4.x chat completions | `LocalLLMProvider` (deterministic narration) |
-| Observability | `langfuse` 3.x traces | `LocalObservabilityProvider` (in-memory) |
-
-## Which parts are stubs
-
-| Layer | Why it is still a stub | Plan |
-|-------|------------------------|------|
-| Evaluation | Real Ragas is Python; needs a sidecar | Phase 5: spawn Ragas via subprocess or HTTP bridge |
-| Run/trace storage | Engine emits trace; only memory blocks/edges persist | Persist `ExplainableRun` to Postgres next |
-
-Done since the original spec: **memory persistence** — formed memory blocks, entities, and graph edges write to Postgres + pgvector when `DATABASE_URL` is set (`PgMemoryStore`), else in-memory. **Auto memory write-back** — the Visual Memory Lab forms and stores multi-level memory from a note via `POST /api/rag-memory/memory/form`.
-
-The honesty contract: any provider in stub or fallback mode is reported in `providerStatus` and added to `failureModes` (with severity `info` for evaluation and observability stubs, `warn` for retrieval/memory fallbacks).
-
-## Architecture overview
-
-```
-POST /api/rag-memory/framework-run
-        │
-        ▼
-FrameworkEngine.run(input)
-        │
-        ▼
-LangGraph StateGraph
-    START
-      → classifyIntentNode      (langgraph, real)
-      → retrieveDocumentsNode   (llamaindex / local-rag)
-      → retrieveMemoriesNode    (mem0 / local-memory)
-      → buildContextNode        (langgraph, real)
-      → generateAnswerNode      (openai / local-llm)
-      → evaluateAnswerNode      (Ragas-shaped stub)
-      → buildExplainableRunNode (langgraph; synthesises failure modes)
-    END
-        │
-        ▼
-ExplainableRun JSON →  /rag-memory-playground  (debug UI)
+```ts
+ExplainableRun = {
+  runId,
+  input,
+  route,
+  providerStatus,
+  graphSteps,
+  retrievedDocuments,
+  retrievedMemories,
+  finalContext,
+  answer,
+  evaluations,
+  trace,
+  failureModes,
+  debug,
+  meta
+}
 ```
 
-## Example API request
+This gives the UI and the developer the same source of truth.
+
+Instead of hiding internals behind a chat response, the engine exposes:
+
+- which route was selected
+- which providers were real vs stub vs fallback
+- which graph nodes ran
+- which documents were retrieved
+- which memories were retrieved
+- how the final prompt was assembled
+- which eval warnings appeared
+- which failure modes were detected
+- how long the run took
+
+---
+
+### 2. Honest Provider Modes
+
+The system supports three provider modes:
+
+| Mode | Meaning |
+|---|---|
+| `real` | Real provider initialized and used |
+| `stub` | Local deterministic provider used intentionally |
+| `fallback` | Real mode requested, but env/config failed, so local provider was used |
+
+This is useful for portfolio demos and real development because the app works without secrets, but does not pretend that local stubs are production providers.
+
+Example:
+
+```json
+{
+  "role": "rag",
+  "name": "local-rag",
+  "framework": "in-memory-lexical",
+  "mode": "stub",
+  "reason": "FRAMEWORK_MODE=local; using stub."
+}
+```
+
+---
+
+### 3. LangGraph Workflow
+
+The framework run is orchestrated as a LangGraph state machine:
+
+```txt
+START
+  → classifyIntentNode
+  → retrieveDocumentsNode
+  → retrieveMemoriesNode
+  → buildContextNode
+  → generateAnswerNode
+  → evaluateAnswerNode
+  → buildExplainableRunNode
+END
+```
+
+Each node emits a `GraphStep`, so the final response includes a step-by-step execution trace.
+
+---
+
+### 4. RAG + Memory Routing
+
+The engine can route the same input through different modes:
+
+| Mode | Use case |
+|---|---|
+| `rag` | Use documents / knowledge base |
+| `memory` | Use previous user / agent memory |
+| `long_context` | Use larger direct context when retrieval is not enough |
+| `hybrid` | Combine document retrieval + memory retrieval |
+| `auto` | Let the classifier choose the route |
+
+This matters because production AI systems rarely use only one strategy. Good systems choose between retrieval, memory, and long-context depending on the request.
+
+---
+
+### 5. Visual Memory Lab
+
+The `/memory` surface turns a raw note into structured long-term memory.
+
+Pipeline:
+
+```txt
+raw note
+  → normalize
+  → classify
+  → extract entities
+  → split memory blocks
+  → embed
+  → store
+  → link graph
+  → consolidate
+```
+
+Memory block levels:
+
+| Level | Meaning |
+|---|---|
+| `working` | immediate current context |
+| `episodic` | what happened |
+| `semantic` | durable facts / knowledge |
+| `procedural` | learned process / how-to behavior |
+
+Persistence is in-memory by default and switches to Postgres + pgvector when `DATABASE_URL` is set.
+
+---
+
+### 6. Side-by-Side Comparison
+
+The `/compare` surface runs the same query across multiple pipeline configurations and compares:
+
+- answer quality
+- cost
+- latency
+- retrieved context
+- route choice
+- provider modes
+- failure modes
+
+This is the product idea behind the project:
+
+> RAG tuning should be comparative, not vibe-based.
+
+A pipeline that gives a slightly better answer but triples cost is not automatically better. The comparison view makes that trade-off visible.
+
+---
+
+### 7. Failure Mode Catalog
+
+The engine does not only return scores. It names failure modes.
+
+| Failure mode | Severity | Meaning |
+|---|---:|---|
+| `provider_fallback_used` | warn | Real provider was requested but fallback was used |
+| `evaluation_stub_used` | info | Eval is heuristic / Ragas-shaped, not real Ragas |
+| `missing_observability_keys` | info | Langfuse is not configured |
+| `no_documents_retrieved` | warn | Route expected docs but none were retrieved |
+| `no_memories_retrieved` | warn | Route expected memories but none were retrieved |
+| `low_context_relevance` | warn | Retrieved context looks weak |
+| `low_retrieval_score` | warn | Top retrieval score is low |
+| `empty_context` | critical | Final context is empty |
+| `route_mismatch` | info | Route choice and evidence do not match cleanly |
+| `framework_error` | critical | Framework node threw an error |
+| `evaluation_failed` | critical | Evaluator failed |
+
+This makes the system useful for debugging, not just demos.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph UI["Next.js UI"]
+    Home["/"]
+    Memory["/memory"]
+    Compare["/compare"]
+    Playground["/playground"]
+  end
+
+  subgraph API["Next.js API Routes"]
+    Run["POST /api/rag-memory/framework-run"]
+    CompareAPI["POST /api/rag-memory/compare"]
+    Form["POST /api/rag-memory/memory/form"]
+    Graph["GET /api/rag-memory/memory/graph"]
+    Consolidate["POST /api/rag-memory/memory/consolidate"]
+  end
+
+  subgraph Engine["Framework Engine"]
+    Container["Env-driven DI Container"]
+    LangGraph["LangGraph StateGraph"]
+    Explain["ExplainableRun Builder"]
+  end
+
+  subgraph Providers["Provider Ports"]
+    Rag["RAG Provider\nLlamaIndex.TS / Local"]
+    MemoryProvider["Memory Provider\nMem0 / Local"]
+    LLM["LLM Provider\nOpenAI / Local"]
+    Eval["Evaluation Provider\nJudge / Deterministic"]
+    Obs["Observability\nLangfuse / Local"]
+  end
+
+  subgraph Storage["Persistence"]
+    InMemory["In-memory store"]
+    Postgres["Postgres + pgvector"]
+  end
+
+  UI --> API
+  API --> Engine
+  Container --> Providers
+  Engine --> LangGraph
+  LangGraph --> Rag
+  LangGraph --> MemoryProvider
+  LangGraph --> LLM
+  LangGraph --> Eval
+  LangGraph --> Obs
+  LangGraph --> Explain
+  MemoryProvider --> InMemory
+  MemoryProvider --> Postgres
+```
+
+---
+
+## Example API Request
 
 ```bash
 curl -X POST http://localhost:3000/api/rag-memory/framework-run \
   -H "Content-Type: application/json" \
   -d '{
     "userId": "demo-user",
-    "message": "Почему я снова застрял с Shadow и этой теорией?",
+    "message": "Why am I stuck with this Shadow memory architecture?",
     "mode": "auto"
   }'
 ```
 
-## Example API response
+Example response shape:
 
 ```json
 {
-  "runId": "run_8974...",
-  "input": { "userId": "demo-user", "message": "...", "mode": "auto" },
+  "runId": "run_...",
   "route": {
     "mode": "hybrid",
     "useDocuments": true,
@@ -259,71 +362,350 @@ curl -X POST http://localhost:3000/api/rag-memory/framework-run \
       "name": "local-rag",
       "framework": "in-memory-lexical",
       "mode": "stub",
-      "reason": "FRAMEWORK_MODE=local; using stub.",
-      "requiredEnvVars": [],
-      "isConfigured": true
+      "reason": "FRAMEWORK_MODE=local; using stub."
     }
   ],
   "graphSteps": [
     {
-      "id": "step_...",
       "name": "classifyIntentNode",
       "framework": "langgraph",
       "providerMode": "real",
-      "status": "ok",
-      "inputSummary": "mode=auto message=\"...\"",
-      "outputSummary": "route=hybrid confidence=0.85",
-      "durationMs": 0
+      "status": "ok"
     }
   ],
-  "retrievedDocuments": [ /* ... */ ],
-  "retrievedMemories": [ /* ... */ ],
-  "finalContext": { "tokensEstimate": 203, "finalPrompt": "..." },
-  "answer": "Local LLM (deterministic). Route: hybrid...",
-  "evaluations": {
-    "faithfulness": { "score": 0.64, "explanation": "..." },
-    "contextRelevance": { "score": 0.39, "explanation": "..." },
-    "answerRelevance": { "score": 0.96, "explanation": "..." },
-    "warnings": []
+  "retrievedDocuments": [],
+  "retrievedMemories": [],
+  "finalContext": {
+    "tokensEstimate": 203,
+    "finalPrompt": "..."
   },
-  "trace": [ /* ... */ ],
+  "evaluations": {
+    "faithfulness": { "score": 0.64 },
+    "contextRelevance": { "score": 0.39 },
+    "answerRelevance": { "score": 0.96 }
+  },
   "failureModes": [
     {
       "type": "evaluation_stub_used",
-      "description": "Evaluation uses Ragas-shaped heuristics, not real Ragas.",
-      "severity": "info"
-    },
-    {
-      "type": "missing_observability_keys",
-      "description": "Observability is stub; traces are local-only.",
       "severity": "info"
     }
-  ],
-  "debug": {
-    "envHints": [ { "key": "OPENAI_API_KEY", "present": false } ],
-    "containerDecisions": [ { "role": "rag", "decision": "stub (FRAMEWORK_MODE=local)" } ],
-    "workflow": {
-      "nodeOrder": ["classifyIntentNode", "retrieveDocumentsNode", "retrieveMemoriesNode", "buildContextNode", "generateAnswerNode", "evaluateAnswerNode", "buildExplainableRunNode"],
-      "skippedNodes": [],
-      "failedNodes": []
-    }
-  },
-  "meta": { "totalDurationMs": 37, "frameworks": { /* ... */ } }
+  ]
 }
 ```
 
-## Failure mode catalog
+---
 
-| Type | Severity | Trigger |
-|------|---------|---------|
-| `provider_fallback_used` | warn | A real provider was requested but unavailable; using stub |
-| `evaluation_stub_used` | info | Evaluator is Ragas-shaped heuristics, not real Ragas |
-| `missing_observability_keys` | info | No Langfuse keys; traces are local-only |
-| `no_documents_retrieved` | warn | Route requested docs but retrieval returned none |
-| `no_memories_retrieved` | warn | Route requested memory but retrieval returned none |
-| `low_context_relevance` | warn | Evaluator scored context relevance < 0.3 |
-| `low_retrieval_score` | warn | Top retrieval score < 0.3 |
-| `empty_context` | critical | Final context contained zero tokens |
-| `route_mismatch` | info | Hybrid route picked but evidence missing |
-| `framework_error` | critical | Framework (LangGraph / LlamaIndex) threw |
-| `evaluation_failed` | critical | Evaluator threw |
+## Tech Stack
+
+| Layer | Tech |
+|---|---|
+| App | Next.js 15 |
+| UI | React 18, Tailwind CSS, Framer Motion, Lucide |
+| Language | TypeScript |
+| Orchestration | LangGraph |
+| Retrieval | LlamaIndex.TS / local lexical provider |
+| Memory | Mem0 / local memory provider |
+| Generation | OpenAI / deterministic local provider |
+| Evaluation | Deterministic Ragas-shaped evaluator / OpenAI judge mode |
+| Observability | Langfuse / local trace provider |
+| Persistence | Postgres + pgvector / in-memory fallback |
+| Validation | Zod |
+| Testing | Node test runner + Playwright |
+
+---
+
+## Repository Structure
+
+```txt
+rag-memory-playground/
+├── app/                         # Next.js app routes + API routes
+│   ├── api/rag-memory/           # Framework run, compare, memory APIs
+│   ├── memory/                   # Visual Memory Lab
+│   ├── compare/                  # Side-by-side comparison UI
+│   └── playground/               # Raw ExplainableRun debug UI
+│
+├── src/
+│   ├── framework/                # Framework-first engine
+│   │   ├── engine.ts             # FrameworkEngine
+│   │   ├── container.ts          # Env-driven provider selection
+│   │   ├── types.ts              # ExplainableRun contract
+│   │   ├── workflow/             # LangGraph graph + nodes
+│   │   ├── ports/                # Provider interfaces
+│   │   ├── adapters/             # Real + local providers
+│   │   ├── memory/               # Memory formation + persistence
+│   │   ├── knowledge/            # Knowledge / retrieval helpers
+│   │   ├── runs/                 # Run helpers
+│   │   └── __tests__/            # Contract tests
+│   │
+│   └── core/                     # Legacy Phase 1 simulator
+│
+├── components/                   # UI components
+├── docs/                         # Product and technical docs
+├── diagrams/                     # Diagrams
+├── e2e/                          # Playwright tests
+├── mock-data/                    # Demo data
+├── screens/                      # Screenshots / visual assets
+├── scripts/                      # CLI demos
+├── spec/                         # Product / technical specs
+├── supabase/migrations/          # Postgres + pgvector schema
+├── architecture.md               # System architecture
+├── product-brief.md              # Product brief
+├── roadmap.md                    # Build roadmap
+├── acceptance-criteria.md        # Gherkin-style acceptance criteria
+├── THEORY.md                     # RAG + memory theory
+├── GUIDE.md                      # Builder-friendly guide
+└── package.json
+```
+
+---
+
+## Local Development
+
+Local mode uses deterministic providers. No API keys are required.
+
+```bash
+git clone https://github.com/Qalipso/rag-memory-playground.git
+cd rag-memory-playground
+npm install
+npm run dev
+```
+
+Open:
+
+```txt
+http://localhost:3000
+```
+
+Useful routes:
+
+```txt
+/memory
+/compare
+/playground
+```
+
+Run the framework demo:
+
+```bash
+npx tsx scripts/demo-framework.ts
+```
+
+Run the legacy simulator:
+
+```bash
+npx tsx scripts/demo.ts
+```
+
+Run tests:
+
+```bash
+npm test
+npm run test:e2e
+npm run typecheck
+npm run build
+```
+
+---
+
+## Environment Variables
+
+Copy `.env.example` to `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+### Local deterministic mode
+
+```bash
+FRAMEWORK_MODE=local
+```
+
+In local mode, the app uses deterministic providers and does not need secrets.
+
+### Real provider mode
+
+```bash
+FRAMEWORK_MODE=real
+OPENAI_API_KEY=
+MEM0_API_KEY=
+MEM0_ORG_ID=
+MEM0_PROJECT_ID=
+LANGFUSE_PUBLIC_KEY=
+LANGFUSE_SECRET_KEY=
+LANGFUSE_BASE_URL=
+DATABASE_URL=
+```
+
+Optional judge mode:
+
+```bash
+EVAL_MODE=judge
+```
+
+Provider promotion is per-provider. Missing keys do not crash the whole app; that provider falls back and reports its status honestly.
+
+---
+
+## Persistence
+
+By default, memory is stored in-process for local development.
+
+When `DATABASE_URL` is configured, the memory formation pipeline writes to Postgres + pgvector.
+
+Apply the schema:
+
+```bash
+psql "$DATABASE_URL" -f supabase/migrations/0001_memory.sql
+```
+
+Main tables:
+
+| Table | Purpose |
+|---|---|
+| `memory_entities` | Extracted people, projects, concepts, actions, places |
+| `memory_blocks` | Working, episodic, semantic, procedural memory blocks |
+| `memory_edges` | Graph links between memory blocks |
+
+---
+
+## What Is Real vs Stubbed
+
+| Layer | Real provider | Local fallback |
+|---|---|---|
+| Orchestration | LangGraph StateGraph | none — always real |
+| Retrieval | LlamaIndex.TS | local lexical RAG provider |
+| Memory | Mem0 / formation memory provider | local memory provider |
+| LLM | OpenAI | deterministic local LLM |
+| Evaluation | OpenAI judge mode | deterministic Ragas-shaped evaluator |
+| Observability | Langfuse | local in-memory trace provider |
+| Persistence | Postgres + pgvector | in-memory store |
+
+This split is intentional: the project can be reviewed locally without API keys, while still showing exactly what would change in a production configuration.
+
+---
+
+## 90-Second Demo Path
+
+1. Open `/memory`.
+2. Paste a messy note about a project, blocker, or repeated pattern.
+3. Run memory formation.
+4. Inspect extracted entities, memory blocks, graph links, and consolidation.
+5. Open `/compare`.
+6. Run the same query across multiple configs.
+7. Compare quality, cost, latency, and failure modes.
+8. Open `/playground`.
+9. Inspect the raw `ExplainableRun` JSON.
+10. Show `providerStatus` to prove which providers are real, stubbed, or fallback.
+
+---
+
+## Example Use Case
+
+A builder is designing a personal AI assistant. They want it to answer:
+
+```txt
+Why do I keep getting stuck on the same product task?
+```
+
+A weak implementation would just send the latest chat history to an LLM.
+
+RAG Memory Playground helps test better approaches:
+
+| Approach | What it tests |
+|---|---|
+| RAG only | Does document retrieval surface the right project notes? |
+| Memory only | Does the assistant recall prior user states and blockers? |
+| Hybrid | Does combining docs + memory improve relevance? |
+| Long context | Is brute-force context better, and what does it cost? |
+| Evaluation | Is the answer faithful to retrieved evidence? |
+| Failure modes | Did the pipeline retrieve nothing, use stale memory, or fall back silently? |
+
+The result is not just an answer. It is a traceable decision about which architecture is better.
+
+---
+
+## What This Project Demonstrates
+
+This project is a portfolio case for applied AI engineering, especially:
+
+- RAG architecture
+- long-term agent memory
+- LangGraph orchestration
+- provider abstraction and dependency injection
+- real/stub/fallback transparency
+- explainable AI run traces
+- side-by-side pipeline comparison
+- cost / latency / quality trade-off design
+- Postgres + pgvector memory persistence
+- evaluation-aware product thinking
+- developer-facing AI tooling
+- product documentation and roadmap design
+
+---
+
+## Roadmap
+
+### Near-term
+
+- Verify Postgres path against live Supabase
+- Wire formed memory into retrieval search
+- Add HTTP-level Playwright tests for `/memory`
+- Persist `ExplainableRun` to Postgres
+- Add run history and permalinks
+- Improve memory consolidation: decay, supersede, entity alias merge
+- Route evaluation through a real judge mode
+
+### Later
+
+- Real Ragas sidecar
+- Production trace ingestion
+- Failure-mode clustering
+- Auto-search over RAG parameters
+- Pareto front: quality × cost × latency
+- Export winning configs as code
+- Ground-truth dataset authoring
+
+---
+
+## Related Docs
+
+| Doc | Purpose |
+|---|---|
+| [`product-brief.md`](./product-brief.md) | Product vision, problem, personas, differentiation |
+| [`architecture.md`](./architecture.md) | System overview and intended architecture |
+| [`roadmap.md`](./roadmap.md) | Build phases and shipped status |
+| [`acceptance-criteria.md`](./acceptance-criteria.md) | Gherkin-style product acceptance tests |
+| [`GUIDE.md`](./GUIDE.md) | Beginner-to-intermediate RAG memory guide |
+| [`THEORY.md`](./THEORY.md) | Research-backed RAG and memory theory |
+
+---
+
+## Portfolio Context
+
+Built by **Eduard Shatalov** as part of an AI product engineering portfolio.
+
+The project shows the difference between a simple AI demo and a production-minded AI system:
+
+```txt
+demo answer
+  vs
+traceable run
+  vs
+measured comparison
+  vs
+provider-aware architecture
+  vs
+memory system with persistence and failure modes
+```
+
+The central idea:
+
+> AI systems should not only answer.  
+> They should explain how they answered, what they used, what failed, and what trade-offs were made.
+
+---
+
+## License
+
+MIT
