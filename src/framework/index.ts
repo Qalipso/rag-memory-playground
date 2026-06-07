@@ -13,6 +13,7 @@ export { LocalMemoryProvider } from "./adapters/local-memory-provider.js";
 export { FormationMemoryProvider } from "./adapters/formation-memory-provider.js";
 export { LocalLLMProvider } from "./adapters/local-llm-provider.js";
 export { DeterministicEvaluator } from "./adapters/deterministic-evaluator.js";
+export { OpenAIJudgeEvaluator } from "./adapters/openai-judge-evaluator.js";
 export { LocalObservabilityProvider } from "./adapters/local-observability-provider.js";
 
 export { LlamaIndexRagProvider } from "./adapters/llamaindex-rag-provider.js";

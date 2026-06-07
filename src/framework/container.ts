@@ -1,4 +1,5 @@
 import { DeterministicEvaluator } from "./adapters/deterministic-evaluator.js";
+import { OpenAIJudgeEvaluator } from "./adapters/openai-judge-evaluator.js";
 import { LangfuseObservabilityProvider } from "./adapters/langfuse-observability-provider.js";
 import { LlamaIndexRagProvider } from "./adapters/llamaindex-rag-provider.js";
 import { LocalLLMProvider } from "./adapters/local-llm-provider.js";
@@ -93,16 +94,24 @@ export function buildFrameworkContainer(
     stub: new LocalLLMProvider(),
   });
 
-  // Evaluation is always the deterministic Ragas-shaped stub for now.
-  // Real Ragas integration requires a Python sidecar (TODO Phase 5).
-  const evaluator: EvaluationProvider = new DeterministicEvaluator();
+  // Evaluation: deterministic Ragas-shaped stub by default. Opt into the real
+  // LLM-as-judge with EVAL_MODE=judge (requires OPENAI_API_KEY + real mode).
+  // The judge self-falls-back to deterministic on error / daily cap.
+  const useJudge =
+    wantsReal &&
+    process.env["EVAL_MODE"] === "judge" &&
+    Boolean(process.env["OPENAI_API_KEY"]);
+  const evaluator: EvaluationProvider = useJudge
+    ? new OpenAIJudgeEvaluator()
+    : new DeterministicEvaluator();
   const evalStatus: ProviderStatus = {
     role: "evaluation",
     name: evaluator.name,
     framework: evaluator.framework,
-    mode: "stub",
-    reason:
-      "Real Ragas requires a Python sidecar. Deterministic Ragas-shaped evaluator used.",
+    mode: useJudge ? "real" : "stub",
+    reason: useJudge
+      ? "LLM-as-judge active (EVAL_MODE=judge). Falls back to deterministic on error or daily cap."
+      : "Deterministic Ragas-shaped evaluator. Set EVAL_MODE=judge + OPENAI_API_KEY for LLM-as-judge.",
     requiredEnvVars: evaluator.requiredEnvVars,
     isConfigured: evaluator.isConfigured(),
     ...(evaluator.version ? { version: evaluator.version } : {}),
