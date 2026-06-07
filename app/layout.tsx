@@ -1,14 +1,20 @@
 import type { ReactNode } from "react";
+import "./globals.css";
+import { Shell } from "@/components/Shell";
 
 export const metadata = {
   title: "RAG Memory Playground",
-  description: "LangGraph + LlamaIndex.TS + Mem0 + Langfuse + Ragas-shaped evaluation",
+  description:
+    "Framework-first RAG Memory engine — LangGraph · LlamaIndex.TS · Mem0 · OpenAI · Ragas-shaped eval · Langfuse",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, background: "#0d1117", color: "#e6edf3" }}>{children}</body>
+      <body>
+        <div className="app-bg" />
+        <Shell>{children}</Shell>
+      </body>
     </html>
   );
 }

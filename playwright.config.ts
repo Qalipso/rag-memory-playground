@@ -23,5 +23,7 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env["CI"],
     timeout: 120_000,
+    // Force deterministic stub providers: fast, offline, no flaky LLM latency.
+    env: { FRAMEWORK_MODE: "local" },
   },
 });

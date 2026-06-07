@@ -480,12 +480,9 @@ function EvalRow({
 const S = {
   main: {
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-    background: "#0d1117",
+    background: "transparent",
     color: "#e6edf3",
-    minHeight: "100vh",
-    padding: "32px",
-    maxWidth: 1180,
-    margin: "0 auto",
+    padding: 0,
   } as const,
   header: { marginBottom: 16 },
   tabBar: {

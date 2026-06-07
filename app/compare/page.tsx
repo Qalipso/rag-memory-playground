@@ -1,288 +1,185 @@
 /**
  * /compare — Side-by-side pipeline comparison.
- *
- * Runs the same query through 2–4 configs and diffs them on quality (eval
- * scores), cost (estimated USD), and latency. Winners are highlighted per axis.
+ * Same query × 2–4 configs. Diff quality × cost × latency, winners per axis.
  */
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
+import { GitCompareArrows, Plus, X, Trophy, Zap, DollarSign, Play } from "lucide-react";
+import { GlassCard, CardTitle } from "@/components/ui/card";
+import { Badge, Textarea, Select } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/button";
 
 type Mode = "auto" | "rag" | "memory" | "long_context" | "hybrid";
-
-interface ConfigDraft {
-  label: string;
-  mode: Mode;
-  topK: number;
-  maxContextTokens: number;
-}
-
+interface ConfigDraft { label: string; mode: Mode; topK: number; maxContextTokens: number }
 interface Metrics {
-  routeMode: string;
-  documents: number;
-  memories: number;
-  promptTokens: number;
-  answerChars: number;
-  latencyMs: number;
-  faithfulness: number;
-  contextRelevance: number;
-  answerRelevance: number;
-  estimatedCostUsd: number;
-  llmMode: string;
-  failureModeCount: number;
+  routeMode: string; documents: number; memories: number; promptTokens: number;
+  answerChars: number; latencyMs: number; faithfulness: number; contextRelevance: number;
+  answerRelevance: number; estimatedCostUsd: number; llmMode: string; failureModeCount: number;
 }
-
 interface Row {
-  label: string;
-  config: ConfigDraft;
-  run: {
-    answer: string;
-    failureModes: Array<{ type: string; severity: string; description: string }>;
-  };
+  label: string; config: ConfigDraft;
+  run: { answer: string; failureModes: Array<{ type: string; severity: string }> };
   metrics: Metrics;
 }
-
 interface CompareResponse {
-  query: { userId: string; message: string };
-  providerStatus: Array<{ role: string; mode: string; name: string }>;
   rows: Row[];
   winners: { faithfulness: string | null; cost: string | null; latency: string | null };
 }
 
 const MODES: Mode[] = ["auto", "rag", "memory", "long_context", "hybrid"];
-
-const DEFAULT_CONFIGS: ConfigDraft[] = [
-  { label: "Tight (topK=3)", mode: "auto", topK: 3, maxContextTokens: 2000 },
-  { label: "Wide (topK=10)", mode: "auto", topK: 10, maxContextTokens: 6000 },
+const DEFAULTS: ConfigDraft[] = [
+  { label: "Tight (k=3)", mode: "auto", topK: 3, maxContextTokens: 2000 },
+  { label: "Wide (k=10)", mode: "auto", topK: 10, maxContextTokens: 6000 },
 ];
 
 export default function ComparePage() {
-  const [userId] = useState("demo-user");
-  const [message, setMessage] = useState(
-    "Почему я снова застрял с Shadow и этой теорией?"
-  );
-  const [configs, setConfigs] = useState<ConfigDraft[]>(DEFAULT_CONFIGS);
+  const userId = "demo-user";
+  const [message, setMessage] = useState("Почему я снова застрял с Shadow и этой теорией?");
+  const [configs, setConfigs] = useState<ConfigDraft[]>(DEFAULTS);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CompareResponse | null>(null);
 
-  function updateConfig(i: number, patch: Partial<ConfigDraft>) {
-    setConfigs((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...patch } : c)));
-  }
+  const patch = (i: number, p: Partial<ConfigDraft>) =>
+    setConfigs((prev) => prev.map((c, idx) => (idx === i ? { ...c, ...p } : c)));
+  const add = () => configs.length < 4 &&
+    setConfigs((p) => [...p, { label: `Config ${p.length + 1}`, mode: "auto", topK: 5, maxContextTokens: 4000 }]);
+  const remove = (i: number) => configs.length > 2 && setConfigs((p) => p.filter((_, idx) => idx !== i));
 
-  function addConfig() {
-    if (configs.length >= 4) return;
-    setConfigs((prev) => [
-      ...prev,
-      {
-        label: `Config ${prev.length + 1}`,
-        mode: "auto",
-        topK: 5,
-        maxContextTokens: 4000,
-      },
-    ]);
-  }
-
-  function removeConfig(i: number) {
-    if (configs.length <= 2) return;
-    setConfigs((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
-  async function runCompare() {
-    setLoading(true);
-    setError(null);
-    setResult(null);
+  async function run() {
+    setLoading(true); setError(null); setResult(null);
     try {
       const res = await fetch("/api/rag-memory/compare", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ userId, message, configs }),
       });
       if (!res.ok) {
-        const errBody = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(errBody.error ?? `HTTP ${res.status}`);
+        const e = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(e.error ?? `HTTP ${res.status}`);
       }
       setResult((await res.json()) as CompareResponse);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setError((e as Error).message); }
+    finally { setLoading(false); }
   }
 
   return (
-    <main style={S.main}>
-      <header style={{ marginBottom: 20 }}>
-        <Link href="/" style={S.back}>
-          ← Back to home
-        </Link>
-        <h1 style={S.h1}>Side-by-side comparison</h1>
-        <p style={S.sub}>
-          Run the same query through 2–4 pipeline configs. Diff quality (eval
-          scores) × cost (estimated USD) × latency. Winners highlighted per axis.
-        </p>
-      </header>
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-white/5 ring-1 ring-white/10">
+          <GitCompareArrows className="h-5 w-5 text-[var(--color-brand)]" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Side-by-side comparison</h1>
+          <p className="text-sm text-white/50">Same query through 2–4 configs · diff quality × cost × latency</p>
+        </div>
+      </div>
 
-      <section style={S.card}>
-        <label style={S.fieldLabel}>Query</label>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={2}
-          style={S.textarea}
-        />
-      </section>
+      <GlassCard>
+        <label className="mb-2 block text-xs text-white/50">Query</label>
+        <Textarea rows={2} value={message} onChange={(e) => setMessage(e.target.value)} />
+      </GlassCard>
 
-      <section style={S.configGrid}>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {configs.map((c, i) => (
-          <div key={i} style={S.configCard}>
-            <div style={S.configHead}>
+          <GlassCard key={i} className="space-y-2.5">
+            <div className="flex items-center gap-2">
               <input
                 value={c.label}
-                onChange={(e) => updateConfig(i, { label: e.target.value })}
-                style={S.labelInput}
+                onChange={(e) => patch(i, { label: e.target.value })}
+                className="w-full rounded-lg bg-black/30 border border-white/10 px-2 py-1 text-sm font-semibold text-[var(--color-brand)] outline-none"
               />
               {configs.length > 2 && (
-                <button onClick={() => removeConfig(i)} style={S.removeBtn} title="Remove">
-                  ×
+                <button onClick={() => remove(i)} className="rounded-lg border border-white/10 p-1 text-rose-300 hover:bg-white/5">
+                  <X className="h-3.5 w-3.5" />
                 </button>
               )}
             </div>
-            <label style={S.miniLabel}>Route mode</label>
-            <select
-              value={c.mode}
-              onChange={(e) => updateConfig(i, { mode: e.target.value as Mode })}
-              style={S.select}
-            >
-              {MODES.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <label style={S.miniLabel}>topK ({c.topK})</label>
-            <input
-              type="range"
-              min={1}
-              max={20}
-              value={c.topK}
-              onChange={(e) => updateConfig(i, { topK: Number(e.target.value) })}
-              style={S.range}
-            />
-            <label style={S.miniLabel}>maxContextTokens</label>
-            <input
-              type="number"
-              min={256}
-              max={16000}
-              step={256}
-              value={c.maxContextTokens}
-              onChange={(e) =>
-                updateConfig(i, { maxContextTokens: Number(e.target.value) })
-              }
-              style={S.numInput}
-            />
-          </div>
+            <div>
+              <div className="mb-1 text-[11px] text-white/40">Route mode</div>
+              <Select value={c.mode} onChange={(e) => patch(i, { mode: e.target.value as Mode })}>
+                {MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+              </Select>
+            </div>
+            <div>
+              <div className="mb-1 text-[11px] text-white/40">topK: {c.topK}</div>
+              <input type="range" min={1} max={20} value={c.topK}
+                onChange={(e) => patch(i, { topK: Number(e.target.value) })} className="w-full accent-[var(--color-brand)]" />
+            </div>
+            <div>
+              <div className="mb-1 text-[11px] text-white/40">maxContextTokens</div>
+              <input type="number" min={256} max={16000} step={256} value={c.maxContextTokens}
+                onChange={(e) => patch(i, { maxContextTokens: Number(e.target.value) })}
+                className="w-full rounded-lg bg-black/30 border border-white/10 px-2 h-9 text-sm text-white/85 outline-none" />
+            </div>
+          </GlassCard>
         ))}
         {configs.length < 4 && (
-          <button onClick={addConfig} style={S.addCard}>
-            + Add config
+          <button onClick={add} className="glass glass-hover grid min-h-[160px] place-items-center rounded-2xl text-sm text-white/45">
+            <span className="flex items-center gap-1"><Plus className="h-4 w-4" /> Add config</span>
           </button>
         )}
-      </section>
+      </div>
 
-      <button onClick={runCompare} disabled={loading} style={S.runBtn}>
-        {loading ? "Running…" : "Run comparison"}
-      </button>
-
-      {error && <p style={S.error}>{error}</p>}
+      <div className="flex items-center gap-3">
+        <Button variant="primary" onClick={run} disabled={loading}>
+          <Play className="h-4 w-4" /> {loading ? "Running…" : "Run comparison"}
+        </Button>
+        {error && <span className="text-xs text-rose-300">{error}</span>}
+      </div>
 
       {result && <Results result={result} />}
-    </main>
+    </div>
   );
 }
 
 function Results({ result }: { result: CompareResponse }) {
   const { rows, winners } = result;
-  const fmtCost = (n: number) => (n === 0 ? "free (stub)" : `$${n.toFixed(5)}`);
-  const fmtScore = (n: number) => n.toFixed(2);
+  const fmtCost = (n: number) => (n === 0 ? "free" : `$${n.toFixed(5)}`);
+  const f2 = (n: number) => n.toFixed(2);
 
-  const metricRows: Array<{
-    key: keyof Metrics;
-    label: string;
-    fmt: (m: Metrics) => string;
-    winner?: keyof CompareResponse["winners"];
-  }> = [
-    { key: "routeMode", label: "Route", fmt: (m) => m.routeMode },
-    { key: "documents", label: "Docs retrieved", fmt: (m) => String(m.documents) },
-    { key: "memories", label: "Memories", fmt: (m) => String(m.memories) },
-    { key: "promptTokens", label: "Prompt tokens", fmt: (m) => String(m.promptTokens) },
-    {
-      key: "faithfulness",
-      label: "Faithfulness",
-      fmt: (m) => fmtScore(m.faithfulness),
-      winner: "faithfulness",
-    },
-    { key: "contextRelevance", label: "Context rel.", fmt: (m) => fmtScore(m.contextRelevance) },
-    { key: "answerRelevance", label: "Answer rel.", fmt: (m) => fmtScore(m.answerRelevance) },
-    {
-      key: "estimatedCostUsd",
-      label: "Est. cost",
-      fmt: (m) => fmtCost(m.estimatedCostUsd),
-      winner: "cost",
-    },
-    {
-      key: "latencyMs",
-      label: "Latency",
-      fmt: (m) => `${m.latencyMs}ms`,
-      winner: "latency",
-    },
-    { key: "failureModeCount", label: "Failure modes", fmt: (m) => String(m.failureModeCount) },
+  const metricRows: Array<{ label: string; fmt: (m: Metrics) => string; win?: keyof CompareResponse["winners"] }> = [
+    { label: "Route", fmt: (m) => m.routeMode },
+    { label: "Docs", fmt: (m) => String(m.documents) },
+    { label: "Memories", fmt: (m) => String(m.memories) },
+    { label: "Prompt tokens", fmt: (m) => String(m.promptTokens) },
+    { label: "Faithfulness", fmt: (m) => f2(m.faithfulness), win: "faithfulness" },
+    { label: "Context rel.", fmt: (m) => f2(m.contextRelevance) },
+    { label: "Answer rel.", fmt: (m) => f2(m.answerRelevance) },
+    { label: "Est. cost", fmt: (m) => fmtCost(m.estimatedCostUsd), win: "cost" },
+    { label: "Latency", fmt: (m) => `${m.latencyMs}ms`, win: "latency" },
+    { label: "Failures", fmt: (m) => String(m.failureModeCount) },
   ];
 
   return (
-    <section style={{ marginTop: 28 }}>
-      <div style={S.winnerBar}>
-        <span style={{ ...S.winnerChip, background: "#23863622", color: "#7ee787" }}>
-          Best faithfulness: {winners.faithfulness ?? "—"}
-        </span>
-        <span style={{ ...S.winnerChip, background: "#1f6feb22", color: "#79c0ff" }}>
-          Lowest cost: {winners.cost ?? "—"}
-        </span>
-        <span style={{ ...S.winnerChip, background: "#a371f722", color: "#d2a8ff" }}>
-          Fastest: {winners.latency ?? "—"}
-        </span>
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-2">
+        <Badge tone="good"><Trophy className="h-3 w-3" /> Faithfulness: {winners.faithfulness ?? "—"}</Badge>
+        <Badge tone="info"><DollarSign className="h-3 w-3" /> Cost: {winners.cost ?? "—"}</Badge>
+        <Badge tone="brand"><Zap className="h-3 w-3" /> Fastest: {winners.latency ?? "—"}</Badge>
       </div>
 
-      <div style={{ overflowX: "auto" }}>
-        <table style={S.table}>
+      <GlassCard className="overflow-x-auto p-0">
+        <table className="w-full text-sm">
           <thead>
-            <tr>
-              <th style={S.th}>Metric</th>
+            <tr className="border-b border-white/10">
+              <th className="px-4 py-3 text-left text-white/50">Metric</th>
               {rows.map((r) => (
-                <th key={r.label} style={S.th}>
-                  {r.label}
-                  <div style={S.thSub}>
-                    {r.config.mode} · k={r.config.topK} · {r.metrics.llmMode}
-                  </div>
+                <th key={r.label} className="px-4 py-3 text-left align-top">
+                  <div className="font-semibold text-white/90">{r.label}</div>
+                  <div className="text-[10px] font-normal text-white/40">{r.config.mode} · k={r.config.topK} · {r.metrics.llmMode}</div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {metricRows.map((mr) => (
-              <tr key={mr.key}>
-                <td style={S.tdMetric}>{mr.label}</td>
+              <tr key={mr.label} className="border-b border-white/5">
+                <td className="px-4 py-2.5 text-white/45">{mr.label}</td>
                 {rows.map((r) => {
-                  const isWinner = mr.winner && winners[mr.winner] === r.label;
+                  const win = mr.win && winners[mr.win] === r.label;
                   return (
-                    <td
-                      key={r.label}
-                      style={{
-                        ...S.td,
-                        ...(isWinner ? S.tdWinner : {}),
-                      }}
-                    >
+                    <td key={r.label} className={win ? "px-4 py-2.5 font-semibold text-emerald-300" : "px-4 py-2.5 text-white/85"}>
                       {mr.fmt(r.metrics)}
                     </td>
                   );
@@ -291,197 +188,23 @@ function Results({ result }: { result: CompareResponse }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </GlassCard>
 
-      <div style={S.answerGrid}>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {rows.map((r) => (
-          <div key={r.label} style={S.answerCard}>
-            <div style={S.answerHead}>{r.label}</div>
-            <pre style={S.answerText}>{r.run.answer}</pre>
+          <GlassCard key={r.label}>
+            <CardTitle className="text-[var(--color-brand)]">{r.label}</CardTitle>
+            <pre className="mt-2 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-white/75">{r.run.answer}</pre>
             {r.run.failureModes.length > 0 && (
-              <div style={S.fmList}>
-                {r.run.failureModes.map((f, idx) => (
-                  <div key={idx} style={S.fmItem(f.severity)}>
-                    {f.severity}: {f.type}
-                  </div>
+              <div className="mt-2 space-y-1">
+                {r.run.failureModes.map((f, i) => (
+                  <div key={i} className="text-[10px] text-white/40">{f.severity}: {f.type}</div>
                 ))}
               </div>
             )}
-          </div>
+          </GlassCard>
         ))}
       </div>
-    </section>
+    </div>
   );
 }
-
-const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
-
-const S = {
-  main: {
-    fontFamily: mono,
-    padding: 32,
-    maxWidth: 1100,
-    margin: "0 auto",
-    color: "#c9d1d9",
-    background: "#0d1117",
-    minHeight: "100vh",
-  } as const,
-  back: { color: "#79c0ff", textDecoration: "none", fontSize: 12 } as const,
-  h1: { fontSize: 24, margin: "8px 0 4px" } as const,
-  sub: { color: "#8b949e", fontSize: 13, lineHeight: 1.6, margin: 0 } as const,
-  card: {
-    background: "#161b22",
-    border: "1px solid #30363d",
-    borderRadius: 6,
-    padding: 14,
-    marginBottom: 16,
-  } as const,
-  fieldLabel: { display: "block", fontSize: 12, color: "#8b949e", marginBottom: 6 } as const,
-  textarea: {
-    width: "100%",
-    background: "#0d1117",
-    color: "#c9d1d9",
-    border: "1px solid #30363d",
-    borderRadius: 4,
-    padding: 8,
-    fontFamily: mono,
-    fontSize: 13,
-    resize: "vertical" as const,
-  } as const,
-  configGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-    gap: 12,
-    marginBottom: 16,
-  } as const,
-  configCard: {
-    background: "#161b22",
-    border: "1px solid #30363d",
-    borderRadius: 6,
-    padding: 12,
-  } as const,
-  configHead: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8 } as const,
-  labelInput: {
-    flex: 1,
-    background: "#0d1117",
-    color: "#79c0ff",
-    border: "1px solid #30363d",
-    borderRadius: 4,
-    padding: "4px 6px",
-    fontFamily: mono,
-    fontSize: 13,
-    fontWeight: 600,
-  } as const,
-  removeBtn: {
-    background: "#21262d",
-    color: "#ff7b72",
-    border: "1px solid #30363d",
-    borderRadius: 4,
-    cursor: "pointer",
-    width: 24,
-    height: 24,
-    fontSize: 14,
-  } as const,
-  miniLabel: { display: "block", fontSize: 11, color: "#8b949e", margin: "8px 0 4px" } as const,
-  select: {
-    width: "100%",
-    background: "#0d1117",
-    color: "#c9d1d9",
-    border: "1px solid #30363d",
-    borderRadius: 4,
-    padding: 6,
-    fontFamily: mono,
-    fontSize: 12,
-  } as const,
-  range: { width: "100%" } as const,
-  numInput: {
-    width: "100%",
-    background: "#0d1117",
-    color: "#c9d1d9",
-    border: "1px solid #30363d",
-    borderRadius: 4,
-    padding: 6,
-    fontFamily: mono,
-    fontSize: 12,
-  } as const,
-  addCard: {
-    background: "transparent",
-    color: "#8b949e",
-    border: "1px dashed #30363d",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontFamily: mono,
-    fontSize: 13,
-    minHeight: 120,
-  } as const,
-  runBtn: {
-    background: "#238636",
-    color: "white",
-    border: "none",
-    borderRadius: 6,
-    padding: "10px 20px",
-    cursor: "pointer",
-    fontFamily: mono,
-    fontSize: 14,
-  } as const,
-  error: { color: "#ff7b72", marginTop: 12, fontSize: 13 } as const,
-  winnerBar: { display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 16 } as const,
-  winnerChip: { padding: "4px 10px", borderRadius: 4, fontSize: 12 } as const,
-  table: { width: "100%", borderCollapse: "collapse" as const, fontSize: 13 } as const,
-  th: {
-    textAlign: "left" as const,
-    padding: "8px 12px",
-    borderBottom: "1px solid #30363d",
-    color: "#c9d1d9",
-    verticalAlign: "top" as const,
-  } as const,
-  thSub: { fontSize: 10, color: "#8b949e", fontWeight: 400 as const, marginTop: 2 } as const,
-  tdMetric: {
-    padding: "8px 12px",
-    borderBottom: "1px solid #21262d",
-    color: "#8b949e",
-  } as const,
-  td: {
-    padding: "8px 12px",
-    borderBottom: "1px solid #21262d",
-    color: "#c9d1d9",
-  } as const,
-  tdWinner: { background: "#23863622", color: "#7ee787", fontWeight: 600 as const } as const,
-  answerGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: 12,
-    marginTop: 20,
-  } as const,
-  answerCard: {
-    background: "#161b22",
-    border: "1px solid #30363d",
-    borderRadius: 6,
-    padding: 12,
-  } as const,
-  answerHead: { color: "#79c0ff", fontSize: 13, fontWeight: 600, marginBottom: 8 } as const,
-  answerText: {
-    whiteSpace: "pre-wrap" as const,
-    wordBreak: "break-word" as const,
-    fontSize: 12,
-    lineHeight: 1.5,
-    color: "#c9d1d9",
-    margin: 0,
-    fontFamily: mono,
-  } as const,
-  fmList: { marginTop: 8, display: "flex", flexDirection: "column" as const, gap: 4 } as const,
-  fmItem: (severity: string) =>
-    ({
-      fontSize: 11,
-      padding: "2px 6px",
-      borderRadius: 3,
-      background:
-        severity === "critical"
-          ? "#da363322"
-          : severity === "warn"
-          ? "#bf870022"
-          : "#21262d",
-      color:
-        severity === "critical" ? "#ff7b72" : severity === "warn" ? "#ffd479" : "#8b949e",
-    }) as const,
-};

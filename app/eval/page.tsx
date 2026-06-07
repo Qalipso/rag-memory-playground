@@ -628,7 +628,7 @@ function ScorePill({ label, score }: { label: string; score: number }) {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const S = {
-  page: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", background: "#0d1117", minHeight: "100vh", color: "#c9d1d9" } as const,
+  page: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", background: "transparent", color: "#c9d1d9" } as const,
   nav: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 24px", borderBottom: "1px solid #21262d", background: "#161b22" } as const,
   navBrand: { fontSize: 14, fontWeight: 600, color: "#e6edf3" } as const,
   navLinks: { display: "flex", gap: 20 } as const,

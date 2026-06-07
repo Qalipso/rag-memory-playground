@@ -1139,12 +1139,9 @@ function colorChip(t: BlockType): React.CSSProperties {
 const S = {
   main: {
     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-    background: "#0d1117",
+    background: "transparent",
     color: "#e6edf3",
-    minHeight: "100vh",
-    padding: "32px",
-    maxWidth: 1200,
-    margin: "0 auto",
+    padding: 0,
   } as const,
   header: { marginBottom: 16 } as const,
   backLink: {
