@@ -124,6 +124,65 @@ Apply the DB schema once: `psql "$DATABASE_URL" -f supabase/migrations/0001_memo
 
 ---
 
+## Core concepts
+
+### ExplainableRun
+
+Every framework run returns one structured object — the same source of truth for the UI and the developer:
+
+```ts
+ExplainableRun = {
+  runId, input, route,
+  providerStatus,        // which providers were real / stub / fallback
+  graphSteps,            // which nodes ran, with per-step timing
+  retrievedDocuments,
+  retrievedMemories,
+  finalContext,          // how the final prompt was assembled
+  answer,
+  evaluations,           // faithfulness / relevance scores + warnings
+  trace,
+  failureModes,          // named failures, not just numbers
+  debug, meta
+}
+```
+
+Instead of hiding internals behind a chat response, the engine exposes the route taken, which providers were real, which nodes ran, what was retrieved, how the prompt was built, and what failed.
+
+### Honest provider modes
+
+| Mode | Meaning |
+|---|---|
+| `real` | Real provider initialized and used |
+| `stub` | Local deterministic provider used intentionally (no key) |
+| `fallback` | Real mode requested, but env/config failed → local provider used |
+
+The app works without secrets, but never pretends a local stub is a production provider.
+
+### RAG + memory routing
+
+The classifier routes the same input through different strategies:
+
+| Mode | Use case |
+|---|---|
+| `rag` | Use documents / knowledge base |
+| `memory` | Use prior user / agent memory |
+| `long_context` | Larger direct context when retrieval is not enough |
+| `hybrid` | Combine document retrieval + memory retrieval |
+| `auto` | Let the classifier choose |
+
+### Memory block levels
+
+The Visual Memory Lab splits a note into typed long-term memory blocks:
+
+| Level | Meaning |
+|---|---|
+| `working` | immediate current context |
+| `episodic` | what happened |
+| `semantic` | durable facts / knowledge |
+| `procedural` | learned process / how-to |
+
+---
+
 ## Tests
 
 - 9 test suites under `src/framework/__tests__/` + `src/__tests__/` (engine, judge, memory formation/retrieval/consolidation, provider status, run store) — run with `npm test`.
@@ -134,27 +193,43 @@ Apply the DB schema once: `psql "$DATABASE_URL" -f supabase/migrations/0001_memo
 
 ## Architecture
 
+```mermaid
+flowchart LR
+  subgraph UI["Next.js UI"]
+    Home["/"]
+    Memory["/memory"]
+    Compare["/compare"]
+    Playground["/playground"]
+  end
+  subgraph API["API Routes"]
+    Run["framework-run"]
+    Form["memory/form"]
+    Graph["memory/graph"]
+  end
+  subgraph Engine["Framework Engine"]
+    Container["Env-driven DI"]
+    LangGraph["LangGraph StateGraph"]
+    Explain["ExplainableRun builder"]
+  end
+  subgraph Providers["Provider ports (real / stub)"]
+    Rag["RAG · LlamaIndex / local"]
+    Mem["Memory · Mem0 / local"]
+    LLM["LLM · OpenAI / local"]
+    Eval["Eval · judge / heuristic"]
+    Obs["Obs · Langfuse / local"]
+  end
+  subgraph Store["Persistence"]
+    InMem["in-memory"]
+    PG["Postgres + pgvector"]
+  end
+  UI --> API --> Engine
+  Container --> Providers
+  Engine --> LangGraph --> Rag & Mem & LLM & Eval & Obs
+  LangGraph --> Explain
+  Mem --> InMem & PG
 ```
-POST /api/rag-memory/framework-run
-        │
-        ▼
-FrameworkEngine.run(input)
-        │
-        ▼
-LangGraph StateGraph
-    START
-      → classifyIntentNode      (langgraph, real)
-      → retrieveDocumentsNode   (llamaindex / local-rag)
-      → retrieveMemoriesNode    (mem0 / local-memory)
-      → buildContextNode        (langgraph, real)
-      → generateAnswerNode      (openai / local-llm)
-      → evaluateAnswerNode      (judge / Ragas-shaped stub)
-      → buildExplainableRunNode (synthesises failure modes)
-    END
-        │
-        ▼
-ExplainableRun JSON → /playground (debug UI)
-```
+
+The LangGraph state machine runs: `classifyIntent → retrieveDocuments → retrieveMemories → buildContext → generateAnswer → evaluateAnswer → buildExplainableRun`. Each node emits a `GraphStep`, so the response includes a step-by-step execution trace.
 
 More detail: [`architecture.md`](architecture.md) · [`roadmap.md`](roadmap.md) · [`product-brief.md`](product-brief.md) · [`ENGINEERING-NOTES.md`](ENGINEERING-NOTES.md) · [`THEORY.md`](THEORY.md).
 
@@ -220,3 +295,58 @@ Returns an `ExplainableRun`: route decision, `providerStatus`, ordered `graphSte
 ## Why I built this
 
 RAG is the most common pattern in production AI apps and the hardest to debug: the config search space is huge, the eval signal is weak, and the cost picture is usually invisible until launch. This project is a working argument that those three problems are a tooling problem — and that the right tool makes comparison, not generation, the first-class surface. The honesty contract (real vs stub, always reported) is the part I am most deliberate about: a demo that hides its stubs is how you "win the demo, lose the launch."
+
+---
+
+## 90-second demo path
+
+1. Open `/memory`, paste a messy note about a project, blocker, or repeated pattern.
+2. Run memory formation → inspect extracted entities, typed memory blocks, graph links, consolidation.
+3. Open `/compare`, run the same query across multiple configs → compare quality, cost, latency, failure modes.
+4. Open `/playground` → inspect the raw `ExplainableRun`; check `providerStatus` to prove which providers are real, stub, or fallback.
+
+---
+
+## Repository structure
+
+```txt
+rag-memory-playground/
+├── app/                          # Next.js routes + API routes
+│   ├── api/rag-memory/           # framework-run, compare, memory, sources, runs
+│   ├── memory/                   # Visual Memory Lab
+│   ├── compare/                  # side-by-side comparison
+│   ├── eval/                     # golden eval suite
+│   └── playground/               # raw ExplainableRun debug UI
+├── src/framework/                # framework-first engine
+│   ├── engine.ts · container.ts · types.ts
+│   ├── workflow/                 # LangGraph graph + 7 nodes
+│   ├── ports/ · adapters/        # provider interfaces + real/local impls
+│   ├── memory/ · knowledge/      # formation, persistence, retrieval
+│   └── __tests__/                # contract tests
+├── src/core/ · src/mvp/          # legacy Phase 1 simulator
+├── supabase/migrations/          # Postgres + pgvector schema
+├── e2e/                          # Playwright tests
+├── scripts/                      # demos + screenshot capture
+└── architecture.md · roadmap.md · product-brief.md · THEORY.md · GUIDE.md
+```
+
+---
+
+## What this project demonstrates
+
+Applied AI engineering, specifically: RAG architecture · long-term agent memory · LangGraph orchestration · provider abstraction + dependency injection · real/stub/fallback transparency · explainable run traces · side-by-side pipeline comparison · cost/latency/quality trade-off design · Postgres + pgvector persistence · evaluation-aware product thinking.
+
+## Related docs
+
+| Doc | Purpose |
+|---|---|
+| [`product-brief.md`](product-brief.md) | Vision, problem, personas, differentiation |
+| [`architecture.md`](architecture.md) | System overview and architecture |
+| [`roadmap.md`](roadmap.md) | Build phases and shipped status |
+| [`acceptance-criteria.md`](acceptance-criteria.md) | Gherkin-style acceptance tests |
+| [`GUIDE.md`](GUIDE.md) | Builder-friendly RAG memory guide |
+| [`THEORY.md`](THEORY.md) | Research-backed RAG + memory theory |
+
+---
+
+Built by **Eduard Shatalov** as part of an AI product engineering portfolio. MIT licensed.
