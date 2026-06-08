@@ -1,0 +1,207 @@
+{
+  "name": "Gold History Golden Eval",
+  "description": "25 macro-history questions over the 1926-2026 gold memory graph. Each item lists ideal answer points, the source documents that should be retrieved, and memory topics that should surface. Scoring checks how many ideal points and required sources appear in retrieved context + answer. Historical analysis, not investment advice.",
+  "version": "1.0.0",
+  "questions": [
+    {
+      "id": "ge_01",
+      "question": "What did Executive Order 6102 and the Gold Reserve Act do to gold in the 1930s?",
+      "mode": "hybrid",
+      "idealPoints": ["confiscated private gold", "suspended convertibility", "revalued gold to $35", "~41% dollar devaluation", "reflation"],
+      "requiredSourceIds": ["evt_eo6102", "evt_gold_reserve_act"],
+      "requiredMemoryTopics": ["roosevelt", "official price"]
+    },
+    {
+      "id": "ge_02",
+      "question": "Explain the Nixon Shock and why it mattered for gold.",
+      "mode": "hybrid",
+      "idealPoints": ["ended dollar-gold convertibility", "August 1971", "ended Bretton Woods", "gold began to float", "fiat era"],
+      "requiredSourceIds": ["evt_nixon_shock", "regime_bretton_woods", "regime_fiat_transition"],
+      "requiredMemoryTopics": ["nixon", "convertibility"]
+    },
+    {
+      "id": "ge_03",
+      "question": "Compare the 1970s gold rally with the 2020-2026 rally.",
+      "mode": "hybrid",
+      "idealPoints": ["1970s driven by inflation and oil shocks and negative real rates", "2020s driven by central bank demand and de-dollarization and crisis", "both involve geopolitical shocks", "different primary drivers", "1980 peak vs 2020s records"],
+      "requiredSourceIds": ["evt_1979_shocks", "evt_1980_peak", "evt_russia_sanctions", "evt_cb_buying_2023"],
+      "requiredMemoryTopics": ["inflation", "central bank"]
+    },
+    {
+      "id": "ge_04",
+      "question": "When did gold fail as a safe haven?",
+      "mode": "hybrid",
+      "idealPoints": ["2008 liquidation initial sell-off", "March 2020 COVID dip", "gold fell before recovering", "deleveraging cash demand"],
+      "requiredSourceIds": ["evt_gfc_2008", "evt_covid_2020"],
+      "requiredMemoryTopics": ["liquidation", "safe haven"]
+    },
+    {
+      "id": "ge_05",
+      "question": "Is gold a reliable inflation hedge? Give supporting and contradicting evidence.",
+      "mode": "hybrid",
+      "idealPoints": ["true in the 1970s", "failed in 2022 despite high inflation", "real rates matter more", "Volcker era disinflation"],
+      "requiredSourceIds": ["h_inflation_hedge", "evt_2022_inflation_hikes", "evt_volcker_shock"],
+      "requiredMemoryTopics": ["inflation hedge"]
+    },
+    {
+      "id": "ge_06",
+      "question": "How do real interest rates affect gold?",
+      "mode": "hybrid",
+      "idealPoints": ["gold falls when real rates rise", "rises when real rates fall", "no yield so opportunity cost", "2013 taper crash", "explains 1980-2000 bear"],
+      "requiredSourceIds": ["h_real_rates", "evt_taper_tantrum", "evt_volcker_shock"],
+      "requiredMemoryTopics": ["real rates"]
+    },
+    {
+      "id": "ge_07",
+      "question": "Why did gold peak near $850 in January 1980?",
+      "mode": "hybrid",
+      "idealPoints": ["double-digit inflation", "second oil shock", "Iran hostage crisis", "Soviet invasion of Afghanistan", "negative real rates", "blow-off top"],
+      "requiredSourceIds": ["evt_1980_peak", "evt_1979_shocks"],
+      "requiredMemoryTopics": ["1980", "peak"]
+    },
+    {
+      "id": "ge_08",
+      "question": "What was the Volcker shock and what did it do to gold?",
+      "mode": "hybrid",
+      "idealPoints": ["rates near 20%", "positive real rates", "broke inflation", "began two-decade bear market", "strong dollar"],
+      "requiredSourceIds": ["evt_volcker_shock", "regime_strong_dollar_disinflation"],
+      "requiredMemoryTopics": ["volcker"]
+    },
+    {
+      "id": "ge_09",
+      "question": "What was Bretton Woods and how did it anchor gold?",
+      "mode": "hybrid",
+      "idealPoints": ["1944 conference", "dollar convertible to gold at $35", "other currencies pegged to dollar", "US held most monetary gold"],
+      "requiredSourceIds": ["evt_bretton_woods", "regime_bretton_woods"],
+      "requiredMemoryTopics": ["bretton woods", "$35"]
+    },
+    {
+      "id": "ge_10",
+      "question": "Why did the London Gold Pool fail?",
+      "mode": "hybrid",
+      "idealPoints": ["central banks defended $35", "US deficits", "speculative demand", "collapsed in 1968", "two-tier market"],
+      "requiredSourceIds": ["evt_london_gold_pool", "evt_gold_pool_collapse"],
+      "requiredMemoryTopics": ["gold pool"]
+    },
+    {
+      "id": "ge_11",
+      "question": "How did the 2022 freezing of Russian reserves change gold's role?",
+      "mode": "hybrid",
+      "idealPoints": ["~$300bn reserves frozen", "gold seen as sanction-proof", "accelerated central bank buying", "de-dollarization"],
+      "requiredSourceIds": ["evt_russia_sanctions", "evt_cb_buying_2023"],
+      "requiredMemoryTopics": ["sanctions", "reserve"]
+    },
+    {
+      "id": "ge_12",
+      "question": "Why did gold stay flat in 2022 despite 40-year-high inflation?",
+      "mode": "hybrid",
+      "idealPoints": ["aggressive Fed hikes", "rising real rates", "strong dollar", "counterexample to inflation hedge"],
+      "requiredSourceIds": ["evt_2022_inflation_hikes", "cex_2022_inflation_flat"],
+      "requiredMemoryTopics": ["2022", "real rates"]
+    },
+    {
+      "id": "ge_13",
+      "question": "How can gold rise in 2023-2026 even with positive real rates?",
+      "mode": "hybrid",
+      "idealPoints": ["record central bank buying", "de-dollarization", "structural demand overrode real rates", "valuation effect"],
+      "requiredSourceIds": ["evt_cb_buying_2023", "evt_2024_records", "cex_2024_high_rates_high_gold"],
+      "requiredMemoryTopics": ["central bank demand"]
+    },
+    {
+      "id": "ge_14",
+      "question": "What role did central bank selling play in the 1990s gold bear market?",
+      "mode": "hybrid",
+      "idealPoints": ["heavy central bank sales", "price fell to ~$250", "Washington Agreement 1999 capped sales", "gold out of favor"],
+      "requiredSourceIds": ["evt_cb_sales_1990s", "cex_1990s_cb_selling"],
+      "requiredMemoryTopics": ["central bank", "1990s"]
+    },
+    {
+      "id": "ge_15",
+      "question": "What drove gold during the 2008 Global Financial Crisis?",
+      "mode": "hybrid",
+      "idealPoints": ["initial liquidation sell-off", "QE1 and zero rates", "rallied as reflation and crisis hedge", "negative real rates"],
+      "requiredSourceIds": ["evt_gfc_2008", "cex_2008_liquidation"],
+      "requiredMemoryTopics": ["2008", "QE"]
+    },
+    {
+      "id": "ge_16",
+      "question": "How is gold related to the strength of the US dollar?",
+      "mode": "hybrid",
+      "idealPoints": ["inverse relationship", "priced in dollars", "Plaza Accord lifted gold", "2024 decoupling counterexample"],
+      "requiredSourceIds": ["h_dollar_strength", "evt_plaza_accord", "cex_2024_strong_dollar_strong_gold"],
+      "requiredMemoryTopics": ["dollar"]
+    },
+    {
+      "id": "ge_17",
+      "question": "What were the monetary regimes gold has traded under since 1926?",
+      "mode": "rag",
+      "idealPoints": ["official price era", "Bretton Woods", "fiat transition", "Great Inflation bull", "strong-dollar disinflation", "post-2008 expansion", "reserve diversification"],
+      "requiredSourceIds": ["regime_official_price_era", "regime_bretton_woods", "regime_reserve_diversification"],
+      "requiredMemoryTopics": ["regime"]
+    },
+    {
+      "id": "ge_18",
+      "question": "How did the 1970s oil shocks affect gold?",
+      "mode": "hybrid",
+      "idealPoints": ["1973 OPEC embargo", "stagflation", "inflation surged", "gold rose sharply", "dollar weakness"],
+      "requiredSourceIds": ["evt_oil_shock_1973", "evt_1979_shocks"],
+      "requiredMemoryTopics": ["oil shock"]
+    },
+    {
+      "id": "ge_19",
+      "question": "Why did the 2013 taper tantrum crash gold without an inflation spike?",
+      "mode": "hybrid",
+      "idealPoints": ["Fed signaled tapering QE", "real rates rose", "gold fell sharply", "real rates over inflation"],
+      "requiredSourceIds": ["evt_taper_tantrum", "h_real_rates"],
+      "requiredMemoryTopics": ["taper", "real rates"]
+    },
+    {
+      "id": "ge_20",
+      "question": "How did re-legalizing private gold ownership in 1974 matter?",
+      "mode": "rag",
+      "idealPoints": ["Americans could own gold again", "December 1974", "broadened investment demand", "amid inflation fears"],
+      "requiredSourceIds": ["evt_private_gold_legal"],
+      "requiredMemoryTopics": ["private gold"]
+    },
+    {
+      "id": "ge_21",
+      "question": "What role did gold ETFs play after 2004?",
+      "mode": "rag",
+      "idealPoints": ["GLD launched 2004", "easy access", "broadened investment demand", "financialization"],
+      "requiredSourceIds": ["evt_gld_etf"],
+      "requiredMemoryTopics": ["etf"]
+    },
+    {
+      "id": "ge_22",
+      "question": "Summarize the case that central bank demand, not macro factors alone, now drives gold.",
+      "mode": "hybrid",
+      "idealPoints": ["1934 revaluation", "2022-2024 record buying", "de-dollarization", "demand and valuation effects", "official-sector bid"],
+      "requiredSourceIds": ["h_central_bank_demand", "evt_2024_records", "evt_russia_sanctions"],
+      "requiredMemoryTopics": ["central bank demand"]
+    },
+    {
+      "id": "ge_23",
+      "question": "What happened to gold during the Great Depression?",
+      "mode": "hybrid",
+      "idealPoints": ["deflation", "bank runs", "gold hoarding", "convertibility pressure", "official price $20.67 then $35"],
+      "requiredSourceIds": ["evt_great_depression", "evt_eo6102"],
+      "requiredMemoryTopics": ["depression"]
+    },
+    {
+      "id": "ge_24",
+      "question": "Across 100 years, what single factor best explains gold's major turns?",
+      "mode": "hybrid",
+      "idealPoints": ["real interest rates explain many turns", "but central bank demand dominates the 2020s", "inflation alone is insufficient", "regime context matters"],
+      "requiredSourceIds": ["h_real_rates", "h_central_bank_demand", "h_inflation_hedge"],
+      "requiredMemoryTopics": ["real rates", "central bank"]
+    },
+    {
+      "id": "ge_25",
+      "question": "Give an example where two different decades looked similar for gold and explain the similarity.",
+      "mode": "hybrid",
+      "idealPoints": ["1970s and 2020s both inflationary and geopolitically stressed", "both saw gold rise strongly", "different primary drivers", "negative real rates vs central bank demand"],
+      "requiredSourceIds": ["evt_1979_shocks", "evt_2024_records", "regime_great_inflation_bull", "regime_reserve_diversification"],
+      "requiredMemoryTopics": ["similar"]
+    }
+  ]
+}

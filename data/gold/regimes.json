@@ -1,0 +1,100 @@
+[
+  {
+    "id": "official_price_era",
+    "name": "Gold Standard / Official Price Era",
+    "startYear": 1926,
+    "endYear": 1944,
+    "summary": "Gold convertibility and a government-fixed official price. $20.67/oz under the classical gold standard until the 1934 Gold Reserve Act revalued gold to $35/oz.",
+    "characteristics": [
+      "Fixed official gold price set by statute",
+      "Private gold ownership confiscated in 1933 (EO 6102)",
+      "Deflationary Great Depression backdrop",
+      "Dollar devalued ~41% in 1934"
+    ],
+    "macroFactors": ["deflation", "bank_runs", "official_price"]
+  },
+  {
+    "id": "bretton_woods",
+    "name": "Bretton Woods",
+    "startYear": 1944,
+    "endYear": 1971,
+    "summary": "Dollar-anchored system with gold convertible at $35/oz for foreign central banks. US held most monetary gold; the dollar became the global reserve currency.",
+    "characteristics": [
+      "USD pegged to gold at $35/oz",
+      "Other currencies pegged to USD",
+      "London Gold Pool (1961-1968) defended the price",
+      "Triffin dilemma: reserve demand vs. gold backing"
+    ],
+    "macroFactors": ["dollar_reserve_status", "fixed_peg", "balance_of_payments"]
+  },
+  {
+    "id": "fiat_transition",
+    "name": "Post-Bretton-Woods Fiat Transition",
+    "startYear": 1971,
+    "endYear": 1976,
+    "summary": "Nixon Shock ended convertibility in 1971. Gold floated freely for the first time in the modern era as the world moved to fiat money amid oil shocks and stagflation.",
+    "characteristics": [
+      "End of dollar-gold convertibility (Aug 1971)",
+      "Free-floating gold price",
+      "First oil shock (1973-1974)",
+      "US re-legalized private gold ownership (1974)"
+    ],
+    "macroFactors": ["fiat_transition", "oil_shock", "stagflation"]
+  },
+  {
+    "id": "great_inflation_bull",
+    "name": "Great Inflation Gold Bull Market",
+    "startYear": 1976,
+    "endYear": 1980,
+    "summary": "Runaway inflation, dollar weakness, and geopolitical shocks drove gold from ~$125 to a January 1980 peak near $850.",
+    "characteristics": [
+      "Double-digit US inflation",
+      "Second oil shock (1979)",
+      "Iran hostage crisis; Soviet invasion of Afghanistan",
+      "Parabolic 1979-1980 blow-off top"
+    ],
+    "macroFactors": ["high_inflation", "negative_real_rates", "geopolitical_shock"]
+  },
+  {
+    "id": "strong_dollar_disinflation",
+    "name": "Strong-Dollar Disinflation Era",
+    "startYear": 1981,
+    "endYear": 2000,
+    "summary": "The Volcker shock and high real rates crushed inflation. A strong dollar, equity bull market, and central bank gold sales produced a two-decade gold bear market.",
+    "characteristics": [
+      "High positive real interest rates",
+      "Disinflation then low, stable inflation",
+      "Central bank gold sales (Washington Agreement 1999 capped them)",
+      "Gold bottomed near $250 in 1999-2001"
+    ],
+    "macroFactors": ["positive_real_rates", "strong_dollar", "disinflation"]
+  },
+  {
+    "id": "post2008_expansion",
+    "name": "Post-Dotcom & GFC Monetary Expansion",
+    "startYear": 2001,
+    "endYear": 2019,
+    "summary": "Serial monetary easing after the dot-com bust, the 2008 Global Financial Crisis, and the eurozone crisis. Zero rates, quantitative easing, and ETF access drove gold to a 2011 peak near $1900, then a real-rate-driven bear into 2015.",
+    "characteristics": [
+      "Zero/low policy rates and multiple QE rounds",
+      "Gold ETFs (GLD 2004) broaden access",
+      "2011 peak ~$1900; 2013 taper tantrum drawdown",
+      "Gold tracks real rates inversely"
+    ],
+    "macroFactors": ["quantitative_easing", "real_rates", "crisis_hedge"]
+  },
+  {
+    "id": "reserve_diversification",
+    "name": "2020s Inflation & Geopolitical Reserve Diversification",
+    "startYear": 2020,
+    "endYear": 2026,
+    "summary": "COVID stimulus, the highest inflation in 40 years, the 2022 freezing of Russian reserves, and record central bank buying drove gold to successive records and shifted reserve demand toward gold.",
+    "characteristics": [
+      "Pandemic QE and fiscal stimulus",
+      "2022 reserve freeze reframed gold as sanction-proof reserve",
+      "Record central bank gold purchases (2022-2024)",
+      "De-dollarization / reserve diversification narrative"
+    ],
+    "macroFactors": ["central_bank_demand", "geopolitical_risk", "de_dollarization", "high_inflation"]
+  }
+]

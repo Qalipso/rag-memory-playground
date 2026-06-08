@@ -1,0 +1,102 @@
+year,price_usd,regime_id,note
+1926,20.67,official_price_era,Classical gold standard; US official price fixed at $20.67/oz.
+1927,20.66,official_price_era,Gold convertibility intact; pre-Depression stability.
+1928,20.67,official_price_era,Official price era; gold backs the dollar.
+1929,20.63,official_price_era,Wall Street Crash in October begins the Great Depression.
+1930,20.65,official_price_era,Banking stress builds; gold hoarding rises.
+1931,20.67,official_price_era,UK leaves the gold standard; pressure on US convertibility.
+1932,20.67,official_price_era,Deflationary depression; bank runs intensify.
+1933,26.33,official_price_era,Roosevelt suspends convertibility; Executive Order 6102 confiscates private gold.
+1934,34.69,official_price_era,Gold Reserve Act revalues gold to $35/oz; dollar devalued ~41%.
+1935,35.00,official_price_era,New $35 official price; Treasury accumulates gold.
+1936,35.00,official_price_era,Official price held; recovery underway.
+1937,35.00,official_price_era,Recession within the Depression.
+1938,35.00,official_price_era,Gold inflows to the US continue.
+1939,35.00,official_price_era,World War II begins in Europe; gold flows to US safety.
+1940,35.00,official_price_era,War demand; US gold stock near peak.
+1941,35.00,official_price_era,US enters WWII after Pearl Harbor.
+1942,35.00,official_price_era,Wartime controls; gold price pegged.
+1943,35.00,official_price_era,War economy; official price unchanged.
+1944,35.00,bretton_woods,Bretton Woods conference establishes USD-gold anchored system at $35/oz.
+1945,35.00,bretton_woods,WWII ends; US holds majority of world monetary gold.
+1946,35.00,bretton_woods,Bretton Woods institutions (IMF, World Bank) launch.
+1947,35.00,bretton_woods,Postwar reconstruction; dollar shortage.
+1948,35.00,bretton_woods,Marshall Plan; dollar as reserve anchor.
+1949,35.00,bretton_woods,Sterling devaluation; dollar dominance grows.
+1950,35.00,bretton_woods,Korean War; official price holds.
+1951,35.00,bretton_woods,Treasury-Fed Accord; monetary policy independence.
+1952,35.00,bretton_woods,Stable peg; global trade recovers.
+1953,35.00,bretton_woods,Postwar growth; gold price fixed.
+1954,35.00,bretton_woods,London Gold Market reopens.
+1955,35.00,bretton_woods,Bretton Woods at its peak stability.
+1956,35.00,bretton_woods,Suez crisis; sterling pressure.
+1957,35.00,bretton_woods,European convertibility approaches.
+1958,35.00,bretton_woods,European currencies restore convertibility; dollar claims grow.
+1959,35.00,bretton_woods,Foreign dollar holdings rise relative to US gold.
+1960,35.00,bretton_woods,London gold price spikes; Triffin dilemma articulated.
+1961,35.00,bretton_woods,London Gold Pool formed to defend $35 price.
+1962,35.00,bretton_woods,Gold Pool defends peg amid Cuban Missile Crisis.
+1963,35.00,bretton_woods,US balance-of-payments deficits persist.
+1964,35.00,bretton_woods,Dollar overhang grows versus US gold stock.
+1965,35.00,bretton_woods,France under de Gaulle redeems dollars for gold.
+1966,35.00,bretton_woods,Gold Pool strained by speculative demand.
+1967,35.00,bretton_woods,Sterling devaluation; run on the Gold Pool.
+1968,35.00,bretton_woods,Gold Pool collapses; two-tier gold market created.
+1969,35.00,bretton_woods,Free-market gold diverges above $35.
+1970,35.00,bretton_woods,US gold cover shrinks; convertibility doubts mount.
+1971,40.80,fiat_transition,Nixon Shock: US ends dollar-gold convertibility in August; float begins.
+1972,58.16,fiat_transition,Free-floating gold rises; Smithsonian Agreement falters.
+1973,97.32,fiat_transition,Bretton Woods fully abandoned; first oil shock (OPEC embargo).
+1974,159.26,fiat_transition,Stagflation; US legalizes private gold ownership (Dec 31).
+1975,161.02,fiat_transition,Gold investment opens to Americans; price consolidates.
+1976,124.84,great_inflation_bull,Gold bottoms after correction; Great Inflation bull market begins.
+1977,147.71,great_inflation_bull,Dollar weakness; inflation accelerates.
+1978,193.22,great_inflation_bull,Inflation and dollar crisis drive gold higher.
+1979,306.68,great_inflation_bull,Second oil shock; Iran hostage crisis; Soviet invasion of Afghanistan.
+1980,615.00,great_inflation_bull,Gold spikes to ~$850 in January; inflation peak; Volcker tightens.
+1981,460.03,strong_dollar_disinflation,Volcker shock: high real rates crush inflation; gold bear market begins.
+1982,375.67,strong_dollar_disinflation,Deep recession; disinflation underway; strong dollar.
+1983,424.35,strong_dollar_disinflation,Recovery; gold range-bound.
+1984,360.48,strong_dollar_disinflation,Strong dollar peaks; gold weak.
+1985,317.26,strong_dollar_disinflation,Plaza Accord weakens the dollar.
+1986,367.66,strong_dollar_disinflation,Dollar decline lifts gold modestly.
+1987,446.46,strong_dollar_disinflation,Black Monday crash; brief safe-haven bid.
+1988,436.94,strong_dollar_disinflation,Disinflation entrenched; gold drifts.
+1989,381.44,strong_dollar_disinflation,Cold War ends; low inflation expectations.
+1990,383.51,strong_dollar_disinflation,Gulf War; oil spike but gold muted.
+1991,362.11,strong_dollar_disinflation,Soviet collapse; central bank gold sales begin.
+1992,343.82,strong_dollar_disinflation,Disinflation; gold out of favor.
+1993,359.77,strong_dollar_disinflation,Brief rally on inflation scare.
+1994,384.00,strong_dollar_disinflation,Fed tightening; gold flat.
+1995,383.79,strong_dollar_disinflation,Goldilocks economy; equities favored.
+1996,387.81,strong_dollar_disinflation,Gold tops before multi-year decline.
+1997,331.02,strong_dollar_disinflation,Asian financial crisis; central bank gold sales.
+1998,294.24,strong_dollar_disinflation,LTCM crisis; gold still weak.
+1999,278.98,strong_dollar_disinflation,Gold bottoms near $250; Washington Agreement caps CB sales.
+2000,279.11,strong_dollar_disinflation,Dot-com peak; gold deeply out of favor.
+2001,271.04,post2008_expansion,Gold bottoms; Fed cuts after dot-com bust and 9/11.
+2002,309.73,post2008_expansion,Secular gold bull begins; weak dollar.
+2003,363.38,post2008_expansion,Iraq War; reflation trade.
+2004,409.72,post2008_expansion,First gold ETF (GLD) launches, broadening access.
+2005,444.74,post2008_expansion,Global liquidity; gold trends up.
+2006,603.46,post2008_expansion,Commodity supercycle; gold breaks higher.
+2007,695.39,post2008_expansion,Subprime cracks appear; Fed begins easing.
+2008,871.96,post2008_expansion,Global Financial Crisis; Lehman fails; QE1 launched.
+2009,972.35,post2008_expansion,Zero rates and QE; gold safe-haven and reflation bid.
+2010,1224.53,post2008_expansion,European debt crisis; QE2; gold accelerates.
+2011,1571.52,post2008_expansion,Gold peaks ~$1900; US debt downgrade; eurozone crisis.
+2012,1668.98,post2008_expansion,Highest annual average; QE3 (open-ended).
+2013,1411.23,post2008_expansion,Taper tantrum; gold falls sharply as real rates rise.
+2014,1266.40,post2008_expansion,Disinflation; strong dollar; gold bear.
+2015,1160.06,post2008_expansion,Fed liftoff; gold bottoms near $1050.
+2016,1250.74,post2008_expansion,Brexit vote; gold rebounds.
+2017,1257.61,post2008_expansion,Low volatility; gradual Fed hikes.
+2018,1268.49,post2008_expansion,Trade war; equity volatility late year.
+2019,1392.60,post2008_expansion,Fed pivots to cuts; real rates fall; gold breaks out.
+2020,1769.64,reserve_diversification,COVID-19 crash and massive QE; gold hits record ~$2075.
+2021,1798.61,reserve_diversification,Reopening inflation begins; gold consolidates.
+2022,1801.87,reserve_diversification,Russia sanctions freeze reserves; war; aggressive Fed hikes; resilient gold.
+2023,1943.00,reserve_diversification,Banking scare (SVB); record central bank buying; gold near records.
+2024,2386.00,reserve_diversification,Central bank demand and de-dollarization push gold to new records (illustrative average).
+2025,2650.00,reserve_diversification,Continued reserve diversification and rate cuts (illustrative).
+2026,2800.00,reserve_diversification,Partial-year illustrative value; reserve-shift narrative persists.

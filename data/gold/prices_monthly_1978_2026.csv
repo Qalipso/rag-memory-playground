@@ -1,0 +1,41 @@
+month,price_usd,regime_id,note
+# Sample monthly London gold (USD/oz), illustrative/approximate. Covers key windows only.
+# Window 1: Great Inflation blow-off (1979-1981)
+1979-01,227.27,great_inflation_bull,Inflation accelerating; dollar weak.
+1979-06,279.06,great_inflation_bull,Oil shock building after Iranian Revolution.
+1979-09,355.10,great_inflation_bull,Momentum into Q4.
+1979-11,391.65,great_inflation_bull,Iran hostage crisis; Soviet Afghanistan tensions.
+1979-12,512.00,great_inflation_bull,Parabolic move begins.
+1980-01,675.31,great_inflation_bull,Intraday peak ~$850 on Jan 21.
+1980-02,665.32,great_inflation_bull,Blow-off top fades; Hunt silver collapse nearby.
+1980-03,553.58,great_inflation_bull,Sharp correction.
+1980-06,600.65,great_inflation_bull,Secondary rally.
+1980-09,673.62,great_inflation_bull,Last surge before Volcker bites.
+1980-12,594.92,great_inflation_bull,Rolling over as real rates rise.
+1981-06,464.16,strong_dollar_disinflation,Volcker tightening; disinflation bear begins.
+1981-12,400.00,strong_dollar_disinflation,Secular top confirmed; long bear ahead.
+# Window 2: Global Financial Crisis and QE bull (2008-2012)
+2008-03,968.43,post2008_expansion,Bear Stearns collapse; first gold push above $1000.
+2008-09,829.93,post2008_expansion,Lehman fails; deleveraging dip then safe-haven bid.
+2008-11,760.86,post2008_expansion,Liquidation low; QE1 announced.
+2009-02,943.16,post2008_expansion,Crisis fear; gold recovers fast.
+2009-12,1134.72,post2008_expansion,QE-driven breakout above old highs.
+2010-06,1232.92,post2008_expansion,European debt crisis; QE2 anticipation.
+2011-08,1813.50,post2008_expansion,US downgrade; eurozone crisis; near peak.
+2011-09,1771.85,post2008_expansion,Record intraday ~$1920 early September.
+2012-10,1746.58,post2008_expansion,QE3 open-ended; cycle high in averages.
+2013-06,1342.36,post2008_expansion,Taper tantrum; sharp drop as real rates rise.
+2015-12,1068.32,post2008_expansion,Cycle bottom near $1050 at Fed liftoff.
+# Window 3: COVID and reserve-diversification era (2019-2026)
+2019-06,1359.19,post2008_expansion,Fed pivot to cuts; breakout from multi-year range.
+2020-03,1591.83,reserve_diversification,COVID crash liquidation dip then rebound on QE.
+2020-08,1968.63,reserve_diversification,Record high ~$2075 amid massive stimulus.
+2021-06,1834.96,reserve_diversification,Reflation; gold consolidates below highs.
+2022-03,1948.20,reserve_diversification,Russia invades Ukraine; reserves frozen; safe-haven spike.
+2022-09,1680.57,reserve_diversification,Aggressive Fed hikes pressure gold despite war.
+2023-03,1912.94,reserve_diversification,SVB banking scare; gold rebounds toward records.
+2023-12,2035.00,reserve_diversification,Record central bank buying; new closing highs.
+2024-04,2330.00,reserve_diversification,De-dollarization narrative; fresh records (illustrative).
+2024-10,2700.00,reserve_diversification,Reserve diversification accelerates (illustrative).
+2025-06,2680.00,reserve_diversification,Elevated demand persists (illustrative).
+2026-01,2800.00,reserve_diversification,Partial-year illustrative value.

@@ -68,7 +68,14 @@ export class PgMemoryStore implements MemoryStore {
 
   private async getPool(): Promise<PoolType> {
     if (this.pool) return this.pool;
-    const { Pool } = await import("pg");
+    // pg is CommonJS; interop differs between Next/webpack and pure-ESM (tsx).
+    // Resolve Pool from either the namespace or the default export.
+    const pg = (await import("pg")) as unknown as {
+      Pool?: typeof PoolType;
+      default?: { Pool?: typeof PoolType };
+    };
+    const Pool = pg.Pool ?? pg.default?.Pool;
+    if (!Pool) throw new Error("pg.Pool constructor not found");
     this.pool = new Pool({
       connectionString: this.connectionString,
       max: 3,

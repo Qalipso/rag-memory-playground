@@ -10,6 +10,7 @@
 
 import { randomUUID } from "node:crypto";
 import { seedDocuments } from "../data/seed.js";
+import { getGoldKnowledgeChunks } from "../gold/knowledge.js";
 import type {
   KnowledgeChunk,
   KnowledgeSource,
@@ -60,7 +61,8 @@ class KnowledgeStore {
       content: d.content,
       chunkIndex: 0,
     }));
-    return [...seedChunks, ...dynamic];
+    // Gold Memory Lab corpus: always-available macro-history documents.
+    return [...seedChunks, ...getGoldKnowledgeChunks(), ...dynamic];
   }
 
   getById(id: string): KnowledgeSourceWithChunks | undefined {

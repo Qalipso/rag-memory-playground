@@ -11,7 +11,8 @@
     "build:tsc": "tsc -p tsconfig.json",
     "test": "tsx --test $(find src -name '*.test.ts')",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:gold": "tsx scripts/seed-gold-memory.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.48",

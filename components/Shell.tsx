@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Brain, GitCompareArrows, Sparkles, Terminal, FlaskConical } from "lucide-react";
+import { Brain, GitCompareArrows, Sparkles, Terminal, FlaskConical, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/memory", label: "Memory Lab", icon: Brain },
+  { href: "/gold-lab", label: "Gold Lab", icon: Coins },
   { href: "/compare", label: "Compare", icon: GitCompareArrows },
   { href: "/rag-memory-playground", label: "Playground", icon: Terminal },
   { href: "/eval", label: "Eval", icon: FlaskConical },

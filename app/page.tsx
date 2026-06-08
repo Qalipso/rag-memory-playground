@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Brain, GitCompareArrows, Terminal, FlaskConical, ArrowRight, Boxes } from "lucide-react";
+import { Brain, GitCompareArrows, Terminal, FlaskConical, ArrowRight, Boxes, Coins } from "lucide-react";
 import { GlassCard, CardTitle, CardDesc } from "@/components/ui/card";
 import { Badge } from "@/components/ui/primitives";
 
@@ -10,6 +10,13 @@ const SURFACES = [
     title: "Visual Memory Lab",
     desc: "Raw note → multi-level long-term memory. Normalize, classify, extract entities, split blocks, embed, store, link graph, consolidate.",
     tone: "brand" as const,
+  },
+  {
+    href: "/gold-lab",
+    icon: Coins,
+    title: "Gold Memory Lab",
+    desc: "Case study: 100 years of gold history as a typed memory graph. Ask, compare RAG vs memory, run the Golden Eval. Not investment advice.",
+    tone: "warn" as const,
   },
   {
     href: "/compare",

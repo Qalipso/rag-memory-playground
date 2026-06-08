@@ -7,6 +7,7 @@
  * The pipeline depends on this async interface, so persistence is a drop-in.
  */
 
+import { createRequire } from "node:module";
 import type { ExtractedEntity, MemoryBlock, MemoryEdge } from "./types.js";
 
 export interface MemoryGraphSnapshot {
@@ -87,13 +88,21 @@ export function getMemoryStore(): MemoryStore {
 }
 
 function selectStore(): MemoryStore {
-  if (process.env["DATABASE_URL"]) {
-    // Lazy require so `pg` is only loaded when persistence is enabled.
+  const url = process.env["DATABASE_URL"];
+  if (!url) return new InMemoryStore();
+
+  // Lazy-load the Postgres backend so `pg` is only required when persistence
+  // is enabled. Under Next.js/webpack the literal `require("./pg.js")` is
+  // statically bundled. Under a pure-ESM runner (tsx) `require` is undefined,
+  // so fall back to createRequire bound to this module.
+  if (typeof require === "function") {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("./pg.js") as typeof import("./pg.js");
-    return new mod.PgMemoryStore(process.env["DATABASE_URL"]);
+    return new mod.PgMemoryStore(url);
   }
-  return new InMemoryStore();
+  const req = createRequire(import.meta.url);
+  const mod = req("./pg.js") as typeof import("./pg.js");
+  return new mod.PgMemoryStore(url);
 }
 
 export function resetMemoryStore(): void {
