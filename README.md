@@ -41,7 +41,7 @@ This is a **working prototype**, not a paper spec. Roughly **end of Phase 3** on
 | `ExplainableRun` persistence + permalinks | ✅ Shipped | run history |
 | LLM-as-judge evaluation | ✅ Shipped | opt-in, OpenAI judge |
 | Document upload + sources | ✅ Shipped | `/api/rag-memory/sources/*` |
-| Real Ragas metrics | 🟡 Stub | Ragas-shaped heuristics; real Ragas needs a Python sidecar |
+| Real Ragas metrics | ✅ Shipped | opt-in Python sidecar (`ragas-sidecar/`); set `RAGAS_URL`. Default stays deterministic stub |
 | Export-as-code | ⬜ Planned | Phase 3 follow-up |
 | Ground-truth authoring UI | ⬜ Planned | Phase 2 design |
 | Reranker stage | ⬜ Planned | Phase 3 |
@@ -120,7 +120,7 @@ Apply the DB schema once: `psql "$DATABASE_URL" -f supabase/migrations/0001_memo
 | Memory | `mem0ai` cloud | `LocalMemoryProvider` (lexical, in-memory) |
 | LLM | `openai` chat completions | `LocalLLMProvider` (deterministic) |
 | Observability | `langfuse` traces | `LocalObservabilityProvider` (in-memory) |
-| Evaluation | OpenAI LLM-as-judge (opt-in) | Ragas-shaped heuristics |
+| Evaluation | Real Ragas via `ragas-sidecar/` (`RAGAS_URL`) or OpenAI LLM-as-judge (`EVAL_MODE=judge`) | Ragas-shaped heuristics |
 
 ---
 
@@ -287,7 +287,7 @@ Returns an `ExplainableRun`: route decision, `providerStatus`, ordered `graphSte
 | 2 | Side-by-side comparison; ground-truth sets; built-in metrics | ✅ Done |
 | 3 | LLM-as-judge; run persistence; trace view; export-as-code | 🟡 Mostly done (export-as-code pending) |
 | 4 | Auto-search: hyperparameter sweep + Pareto front | ⬜ Planned |
-| 5 | Failure-mode tagging + clustering; real Ragas sidecar | ⬜ Planned |
+| 5 | Failure-mode tagging + clustering; real Ragas sidecar | 🟡 Ragas sidecar shipped (`ragas-sidecar/`); tagging UI pending |
 | 6 | Production-trace ingestion (replay prod queries offline) | ⬜ Planned |
 
 ---
@@ -325,6 +325,7 @@ rag-memory-playground/
 │   └── __tests__/                # contract tests
 ├── src/core/ · src/mvp/          # legacy Phase 1 simulator
 ├── supabase/migrations/          # Postgres + pgvector schema
+├── ragas-sidecar/                # Python FastAPI service for real Ragas metrics
 ├── e2e/                          # Playwright tests
 ├── scripts/                      # demos + screenshot capture
 └── architecture.md · roadmap.md · product-brief.md · THEORY.md · GUIDE.md

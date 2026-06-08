@@ -13,11 +13,10 @@ import type { EvaluationsResult } from "../types.js";
  *   - answer relevance:   answer relevant to the question
  *
  * Scoring is heuristic and transparent — derived from retrieval signal,
- * route mode, and context fill. Swap with a real Ragas adapter when running
- * Python Ragas via a sidecar (see TODO at bottom).
+ * route mode, and context fill. This is the default/fallback evaluator.
  *
- * TODO(Phase 5): Replace with real RagasEvaluationProvider that calls
- * Python Ragas over a subprocess or HTTP bridge.
+ * For real Ragas metrics, set RAGAS_URL and run the Python sidecar
+ * (ragas-sidecar/) — the container then selects RagasHttpEvaluator instead.
  */
 export class DeterministicEvaluator implements EvaluationProvider {
   readonly name = "deterministic-ragas-shaped";

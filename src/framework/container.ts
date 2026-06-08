@@ -1,5 +1,6 @@
 import { DeterministicEvaluator } from "./adapters/deterministic-evaluator.js";
 import { OpenAIJudgeEvaluator } from "./adapters/openai-judge-evaluator.js";
+import { RagasHttpEvaluator } from "./adapters/ragas-http-evaluator.js";
 import { LangfuseObservabilityProvider } from "./adapters/langfuse-observability-provider.js";
 import { LlamaIndexRagProvider } from "./adapters/llamaindex-rag-provider.js";
 import { LocalLLMProvider } from "./adapters/local-llm-provider.js";
@@ -94,24 +95,33 @@ export function buildFrameworkContainer(
     stub: new LocalLLMProvider(),
   });
 
-  // Evaluation: deterministic Ragas-shaped stub by default. Opt into the real
-  // LLM-as-judge with EVAL_MODE=judge (requires OPENAI_API_KEY + real mode).
-  // The judge self-falls-back to deterministic on error / daily cap.
+  // Evaluation, in priority order:
+  //   1. Real Ragas via the Python sidecar     (RAGAS_URL set)
+  //   2. OpenAI LLM-as-judge                    (EVAL_MODE=judge + OPENAI_API_KEY)
+  //   3. Deterministic Ragas-shaped stub        (default; always works)
+  const ragasUrl = process.env["RAGAS_URL"];
+  const useRagas = wantsReal && Boolean(ragasUrl);
   const useJudge =
+    !useRagas &&
     wantsReal &&
     process.env["EVAL_MODE"] === "judge" &&
     Boolean(process.env["OPENAI_API_KEY"]);
-  const evaluator: EvaluationProvider = useJudge
-    ? new OpenAIJudgeEvaluator()
-    : new DeterministicEvaluator();
+  const evaluator: EvaluationProvider = useRagas
+    ? new RagasHttpEvaluator(ragasUrl!)
+    : useJudge
+      ? new OpenAIJudgeEvaluator()
+      : new DeterministicEvaluator();
+  const evalReason = useRagas
+    ? "Real Ragas active via sidecar (RAGAS_URL set)."
+    : useJudge
+      ? "LLM-as-judge active (EVAL_MODE=judge). Falls back to deterministic on error or daily cap."
+      : "Deterministic Ragas-shaped evaluator. Set RAGAS_URL for real Ragas, or EVAL_MODE=judge for LLM-as-judge.";
   const evalStatus: ProviderStatus = {
     role: "evaluation",
     name: evaluator.name,
     framework: evaluator.framework,
-    mode: useJudge ? "real" : "stub",
-    reason: useJudge
-      ? "LLM-as-judge active (EVAL_MODE=judge). Falls back to deterministic on error or daily cap."
-      : "Deterministic Ragas-shaped evaluator. Set EVAL_MODE=judge + OPENAI_API_KEY for LLM-as-judge.",
+    mode: useRagas || useJudge ? "real" : "stub",
+    reason: evalReason,
     requiredEnvVars: evaluator.requiredEnvVars,
     isConfigured: evaluator.isConfigured(),
     ...(evaluator.version ? { version: evaluator.version } : {}),
