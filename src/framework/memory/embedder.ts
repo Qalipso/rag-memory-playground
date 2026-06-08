@@ -54,7 +54,8 @@ function hashEmbed(text: string, dim: number): number[] {
     for (let i = 0; i < tok.length; i++) {
       h = (h * 31 + tok.charCodeAt(i)) >>> 0;
     }
-    vec[h % dim] += 1;
+    const idx = h % dim;
+    vec[idx] = (vec[idx] ?? 0) + 1;
   }
   // L2 normalize.
   const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0)) || 1;

@@ -18,3 +18,8 @@ playwright-report/
 test-results/
 .claude/
 .vercel
+
+# secrets / backups
+.env.local.bak
+.local.env
+*.bak

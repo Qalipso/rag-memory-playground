@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  typescript: { ignoreBuildErrors: true },
+  // Repo has its own lockfile; pin tracing root so Next does not climb to the monorepo parent.
+  outputFileTracingRoot: import.meta.dirname,
   // Framework engine pulls in llamaindex / mem0ai / langfuse / openai / pg
   // which are Node-only. Keep them external so webpack does not try to inline.
   serverExternalPackages: [

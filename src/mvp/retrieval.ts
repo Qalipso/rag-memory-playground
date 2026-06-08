@@ -312,7 +312,7 @@ function composeTyped(
   }
 
   // Lead with best block summary (most natural sentence)
-  lines.push(relevant[0].summary);
+  lines.push(relevant[0]!.summary);
 
   // List additional items concisely
   if (relevant.length > 1) {
@@ -338,7 +338,7 @@ function composeGeneric(
   // Lead with verbatim excerpts from top retrieved chunks
   for (let i = 0; i < Math.min(2, retrieved.length); i++) {
     if (i > 0) lines.push("");
-    lines.push(retrieved[i].preview);
+    lines.push(retrieved[i]!.preview);
   }
 
   // Supplement with block context — use summary (natural sentence), filter junk titles

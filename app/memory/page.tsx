@@ -268,7 +268,7 @@ export default function MemoryLabPage() {
               backgroundColor="rgba(0,0,0,0)"
               nodeLabel="label"
               nodeRelSize={5}
-              linkColor={(l: { color?: string }) => l.color ?? "#30363d"}
+              linkColor={(l) => (l as { color?: string }).color ?? "#30363d"}
               linkWidth={1.4}
               height={420}
             />
