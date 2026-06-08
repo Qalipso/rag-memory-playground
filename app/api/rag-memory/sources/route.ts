@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SAMPLE_FILES } from "../../../src/mvp/sample-files";
+import { SAMPLE_FILES } from "@/mvp/sample-files";
 
 // Derive stub sources from actual SAMPLE_FILES so content is real.
 const STUB_SOURCES = SAMPLE_FILES.map((f, i) => ({

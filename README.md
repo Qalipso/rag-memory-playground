@@ -17,7 +17,7 @@ Three working surfaces:
 - **Visual Memory Lab** (`/memory`) — turn a raw note into multi-level long-term memory: normalize → classify → extract entities → split blocks → embed → store → link graph → consolidate. Full per-stage trace + interactive memory graph.
 - **Side-by-side comparison** (`/compare`) — run the same query through 2–4 pipeline configs; diff quality × cost × latency, winners per axis.
 - **Golden Eval** (`/eval`) — score retrieval and answers against a versioned ground-truth set.
-- **Framework Playground** (`/playground`) — raw `ExplainableRun` JSON for any query, for debugging the graph.
+- **Framework Playground** (`/rag-memory-playground`) — full workbench: configure providers, manage knowledge sources, run a query, and inspect the raw `ExplainableRun` + memory graph.
 
 Why it exists: it fills the space between "I have a notebook with LangChain code that works on my laptop" and "we have production RAG and I cannot tell why retrieval quality dropped last Tuesday." It is the experimentation and decision layer that lets a small team make defensible RAG decisions without rebuilding plumbing.
 
@@ -199,7 +199,7 @@ flowchart LR
     Home["/"]
     Memory["/memory"]
     Compare["/compare"]
-    Playground["/playground"]
+    Playground["/rag-memory-playground"]
   end
   subgraph API["API Routes"]
     Run["framework-run"]
@@ -303,7 +303,7 @@ RAG is the most common pattern in production AI apps and the hardest to debug: t
 1. Open `/memory`, paste a messy note about a project, blocker, or repeated pattern.
 2. Run memory formation → inspect extracted entities, typed memory blocks, graph links, consolidation.
 3. Open `/compare`, run the same query across multiple configs → compare quality, cost, latency, failure modes.
-4. Open `/playground` → inspect the raw `ExplainableRun`; check `providerStatus` to prove which providers are real, stub, or fallback.
+4. Open `/rag-memory-playground` → configure providers, run a query, inspect the raw `ExplainableRun`; check `providerStatus` to prove which providers are real, stub, or fallback.
 
 ---
 
@@ -316,7 +316,7 @@ rag-memory-playground/
 │   ├── memory/                   # Visual Memory Lab
 │   ├── compare/                  # side-by-side comparison
 │   ├── eval/                     # golden eval suite
-│   └── playground/               # raw ExplainableRun debug UI
+│   └── rag-memory-playground/    # workbench: settings, sources, memory graph, ExplainableRun
 ├── src/framework/                # framework-first engine
 │   ├── engine.ts · container.ts · types.ts
 │   ├── workflow/                 # LangGraph graph + 7 nodes

@@ -47,8 +47,8 @@ await go("/compare");
 await clickByText("Run comparison", 20000);
 await shot("03-compare.png");
 
-// 4. Playground — load sample then explore
-await go("/playground");
+// 4. Playground (workbench)
+await go("/rag-memory-playground");
 await clickByText("Load sample project", 4000);
 await clickByText("Explore", 14000);
 await shot("04-playground.png");

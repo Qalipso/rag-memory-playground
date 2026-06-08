@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { RagMemoryEngine, type FileInput } from "../src/mvp/engine";
-import { SAMPLE_FILES } from "../src/mvp/sample-files";
+import { RagMemoryEngine, type FileInput } from "@/mvp/engine";
+import { SAMPLE_FILES } from "@/mvp/sample-files";
 
 // ── Golden Q/A pairs ─────────────────────────────────────────────────────────
 
@@ -259,7 +259,7 @@ export default function EvalPage() {
         <div style={S.navLinks}>
           {[
             { href: "/", label: "Home" },
-            { href: "/playground", label: "Playground" },
+            { href: "/rag-memory-playground", label: "Playground" },
             { href: "/eval", label: "Eval" },
           ].map(({ href, label }) => (
             <Link
